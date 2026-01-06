@@ -173,9 +173,9 @@ describe('API Client - Retry Logic', () => {
       fetchMock.mockResolvedValue(await mockScreepsApiResponse({ error: 'Server error' }, 500));
 
       const promise = apiClient.makeApiCall('/test-max-retries-500');
+      const assertion = expect(promise).rejects.toThrow('HTTP 500: Error');
       await jest.runAllTimersAsync();
-      
-      await expect(promise).rejects.toThrow('HTTP 500: Error');
+      await assertion;
       
       // Should try: initial + 3 retries = 4 total attempts
       expect(fetchMock).toHaveBeenCalledTimes(4);
@@ -187,9 +187,9 @@ describe('API Client - Retry Logic', () => {
       fetchMock.mockRejectedValue(new Error('Network error'));
 
       const promise = apiClient.makeApiCall('/test-max-retries-network');
+      const assertion = expect(promise).rejects.toThrow('Network error');
       await jest.runAllTimersAsync();
-      
-      await expect(promise).rejects.toThrow('Network error');
+      await assertion;
 
       // Should try: initial + 3 retries = 4 total attempts
       expect(fetchMock).toHaveBeenCalledTimes(4);
@@ -271,9 +271,9 @@ describe('API Client - Retry Logic', () => {
       fetchMock.mockResolvedValue(await mockScreepsApiResponse({ error: 'Server error' }, 500));
 
       const promise = customApiClient.makeApiCall('/test-custom-retry');
+      const assertion = expect(promise).rejects.toThrow('HTTP 500: Error');
       await jest.runAllTimersAsync();
-      
-      await expect(promise).rejects.toThrow('HTTP 500: Error');
+      await assertion;
 
       // Should try: initial + 1 retry = 2 total attempts
       expect(fetchMock).toHaveBeenCalledTimes(2);
