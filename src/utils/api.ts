@@ -1,5 +1,5 @@
 import { ConfigManager } from '../config/index.js';
-import { ToolResult, ResourceContent, RetryConfig } from '../types/index.js';
+import { ToolResult, ResourceContent } from '../types/index.js';
 
 export interface ApiResponseMetadata {
   endpoint: string;
@@ -22,6 +22,30 @@ export class ApiClient {
 
   constructor(private configManager: ConfigManager) {}
 
+  /**
+   * Performs an HTTP request with automatic retries using exponential backoff.
+   *
+   * This method wraps the global {@link fetch} call and retries requests that
+   * fail due to network errors or return retryable HTTP status codes as
+   * configured via {@link RetryConfig} from the {@link ConfigManager}.
+   *
+   * The delay between retries grows exponentially based on the attempt number,
+   * starting from `initialDelayMs` and capped at `maxDelayMs`. The total number
+   * of retry attempts (not counting the initial call) is limited by
+   * `maxRetries`.
+   *
+   * Non-retryable responses (successful responses, or responses whose status
+   * code is not included in `retryableStatusCodes`) are returned immediately
+   * without further retries. If all retry attempts are exhausted, the last
+   * encountered {@link Error} is thrown regardless of whether it was a network
+   * error or an HTTP error with a retryable status code.
+   *
+   * @param url - The request URL to fetch.
+   * @param options - The {@link RequestInit} options passed directly to `fetch`.
+   * @returns A promise that resolves to the {@link Response} from the final
+   *          successful request, or rejects with an {@link Error} if all
+   *          retries fail.
+   */
   private async fetchWithRetry(url: string, options: RequestInit): Promise<Response> {
     const config = this.configManager.getRetryConfig();
     let lastError: Error | undefined;
@@ -41,10 +65,10 @@ export class ApiClient {
         // Response has retryable status code
         lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
         
-        // If this is the last attempt, return the response anyway
+        // If this is the last attempt, throw the error
         if (attempt === config.maxRetries) {
           console.error(`✗ API call failed after ${config.maxRetries} retries: ${url} - ${lastError.message}`);
-          return response;
+          throw lastError;
         }
 
         // Log retry attempt
@@ -136,6 +160,12 @@ export class ApiClient {
 
       return data;
     } catch (error) {
+      // Check if this is a 429 rate limit error and provide a better error message
+      if (error instanceof Error && error.message.startsWith('HTTP 429:')) {
+        throw new Error(
+          `Rate limit exceeded. Retry after unknown seconds. Consider reducing API call frequency.`,
+        );
+      }
       console.error(`API call failed for ${endpoint}:`, error);
       throw error;
     }

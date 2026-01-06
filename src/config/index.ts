@@ -64,6 +64,16 @@ export class ConfigManager {
     return headers;
   }
 
+  /**
+   * Returns the effective retry configuration for API requests.
+   *
+   * If a custom {@link RetryConfig} has been provided via the constructor or
+   * {@link updateConfig}, that configuration is returned. Otherwise, this
+   * method falls back to {@link DEFAULT_RETRY_CONFIG}.
+   *
+   * @returns {RetryConfig} The currently active retry configuration, with a
+   *          fallback to the default configuration when no custom value is set.
+   */
   getRetryConfig(): RetryConfig {
     return this.config.retryConfig || DEFAULT_RETRY_CONFIG;
   }
