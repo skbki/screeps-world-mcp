@@ -129,7 +129,7 @@ export class RoomToolHandlers {
 
     // Paginate if requested
     if (params.page !== undefined) {
-      const page = Math.max(1, params.page || 1);
+      const page = Math.max(1, params.page);
       const pageSize = Math.min(200, Math.max(1, params.pageSize || 50));
       const startIndex = (page - 1) * pageSize;
       const endIndex = startIndex + pageSize;

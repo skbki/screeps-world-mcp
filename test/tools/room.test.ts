@@ -24,6 +24,13 @@ describe('Room Tools', () => {
     global.fetch = jest.fn<typeof fetch>();
   });
 
+  // Helper function to extract JSON data from tool result
+  const extractJsonData = (resultText: string): any => {
+    const dataMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
+    expect(dataMatch).toBeTruthy();
+    return JSON.parse(dataMatch![1]);
+  };
+
   describe('handleGetRoomTerrain', () => {
     it('should fetch room terrain successfully', async () => {
       const mockData = mockRoomTerrain('W7N3');
@@ -120,10 +127,7 @@ describe('Room Tools', () => {
       const resultText = result.content[0].text;
       expect(resultText).toContain('W7N3');
       
-      // Parse the JSON data from the result
-      const dataMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
-      expect(dataMatch).toBeTruthy();
-      const data = JSON.parse(dataMatch![1]);
+      const data = extractJsonData(resultText);
       
       // Should only have spawn objects
       expect(data.objects).toHaveLength(25);
@@ -149,9 +153,7 @@ describe('Room Tools', () => {
       });
 
       expect(result.isError).toBeFalsy();
-      const resultText = result.content[0].text;
-      const dataMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
-      const data = JSON.parse(dataMatch![1]);
+      const data = extractJsonData(result.content[0].text);
       
       // Should have 25 spawns + 15 towers = 40 objects
       expect(data.objects).toHaveLength(40);
@@ -173,8 +175,7 @@ describe('Room Tools', () => {
       const resultText = result.content[0].text;
       expect(resultText).toContain('GROUPED BY TYPE');
       
-      const dataMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
-      const data = JSON.parse(dataMatch![1]);
+      const data = extractJsonData(resultText);
       
       // Objects should be grouped
       expect(data.objects).toHaveProperty('spawn');
@@ -209,8 +210,7 @@ describe('Room Tools', () => {
       expect(resultText).toContain('PAGE 1 of 4');
       expect(resultText).toContain('NEXT PAGE: Call with page=2');
       
-      const dataMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
-      const data = JSON.parse(dataMatch![1]);
+      const data = extractJsonData(resultText);
       
       // Should have exactly 20 objects
       expect(data.objects).toHaveLength(20);
@@ -242,8 +242,7 @@ describe('Room Tools', () => {
       expect(resultText).toContain('NEXT PAGE: Call with page=3');
       expect(resultText).toContain('PREVIOUS PAGE: Call with page=1');
       
-      const dataMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
-      const data = JSON.parse(dataMatch![1]);
+      const data = extractJsonData(resultText);
       
       expect(data.objects).toHaveLength(20);
       expect(data._metadata.pagination.hasNextPage).toBe(true);
@@ -269,8 +268,7 @@ describe('Room Tools', () => {
       expect(resultText).toContain('PREVIOUS PAGE: Call with page=3');
       expect(resultText).not.toContain('NEXT PAGE');
       
-      const dataMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
-      const data = JSON.parse(dataMatch![1]);
+      const data = extractJsonData(resultText);
       
       expect(data.objects).toHaveLength(20);
       expect(data._metadata.pagination.hasNextPage).toBe(false);
@@ -291,8 +289,7 @@ describe('Room Tools', () => {
       });
 
       expect(result.isError).toBeFalsy();
-      const dataMatch = result.content[0].text.match(/```json\n([\s\S]*?)\n```/);
-      const data = JSON.parse(dataMatch![1]);
+      const data = extractJsonData(result.content[0].text);
       
       // Should have 10 extensions (page 1 of filtered 30 extensions)
       expect(data.objects).toHaveLength(10);
