@@ -40,27 +40,6 @@ describe('MCP Server Integration', () => {
     });
   });
 
-  describe('Tool Registration', () => {
-    it('should register room tools', async () => {
-      const mockData = mockRoomTerrain('W7N3');
-      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
-        await mockScreepsApiResponse(mockData)
-      );
-
-      // The tools should be registered through the ToolRegistry
-      // We verify this indirectly by checking the server has been initialized
-      expect(service.getServer()).toBeDefined();
-    });
-  });
-
-  describe('Resource Registration', () => {
-    it('should register resources', () => {
-      // Resources should be registered through the ResourceRegistry
-      // We verify this indirectly by checking the server has been initialized
-      expect(service.getServer()).toBeDefined();
-    });
-  });
-
   describe('Start Method', () => {
     it('should not start without token', async () => {
       const noTokenService = new ScreepsWorldMcp({

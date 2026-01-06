@@ -56,20 +56,24 @@ describe('API Client', () => {
       await expect(apiClient.makeApiCall('/test-429')).rejects.toThrow('Rate limit exceeded');
     });
 
-    it('should cache results on first call', async () => {
+    it('should detect loops even with cached data', async () => {
+      // Create a fresh API client instance to avoid interference from other tests
+      const freshApiClient = new ApiClient(configManager);
       const mockData = { ok: 1, data: 'success' };
+      
       (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
         await mockScreepsApiResponse(mockData)
       );
 
-      // First call - should fetch
-      const result1 = await apiClient.makeApiCall('/test-cache');
+      // First call - should fetch from API and cache
+      const result1 = await freshApiClient.makeApiCall('/test-cache-endpoint');
 
       expect(result1).toEqual(mockData);
       expect(global.fetch).toHaveBeenCalledTimes(1);
       
-      // Second call would be cached but loop detection will catch it
-      // This is expected behavior
+      // Second identical call triggers loop detection
+      // Loop detection runs before returning cached data to prevent redundant calls
+      await expect(freshApiClient.makeApiCall('/test-cache-endpoint')).rejects.toThrow('LOOP DETECTED');
     });
 
     it('should detect loops on multiple identical calls', async () => {
