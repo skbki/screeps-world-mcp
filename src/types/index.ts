@@ -1,7 +1,15 @@
+export interface RetryConfig {
+  maxRetries: number;
+  initialDelayMs: number;
+  maxDelayMs: number;
+  retryableStatusCodes: number[];
+}
+
 export interface ScreepsConfig {
   baseUrl: string;
   token?: string;
   username?: string;
+  retryConfig?: RetryConfig;
 }
 
 export interface ApiResponse<T = any> {

@@ -1,5 +1,5 @@
 import { ConfigManager } from '../config/index.js';
-import { ToolResult, ResourceContent } from '../types/index.js';
+import { ToolResult, ResourceContent, RetryConfig } from '../types/index.js';
 
 export interface ApiResponseMetadata {
   endpoint: string;
@@ -21,6 +21,60 @@ export class ApiClient {
   private maxRecentCalls = 20; // Track last 20 calls
 
   constructor(private configManager: ConfigManager) {}
+
+  private async fetchWithRetry(url: string, options: RequestInit): Promise<Response> {
+    const config = this.configManager.getRetryConfig();
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+      try {
+        const response = await fetch(url, options);
+
+        // If response is OK or not retryable, return immediately
+        if (response.ok || !config.retryableStatusCodes.includes(response.status)) {
+          if (attempt > 0) {
+            console.log(`✓ API call succeeded after ${attempt} ${attempt === 1 ? 'retry' : 'retries'}: ${url}`);
+          }
+          return response;
+        }
+
+        // Response has retryable status code
+        lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+        
+        // If this is the last attempt, return the response anyway
+        if (attempt === config.maxRetries) {
+          console.error(`✗ API call failed after ${config.maxRetries} retries: ${url} - ${lastError.message}`);
+          return response;
+        }
+
+        // Log retry attempt
+        console.log(`⟳ Retry attempt ${attempt + 1}/${config.maxRetries} for ${url} (status: ${response.status})`);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // If this is the last attempt, throw the error
+        if (attempt === config.maxRetries) {
+          console.error(`✗ API call failed after ${config.maxRetries} retries: ${url} - ${lastError.message}`);
+          throw lastError;
+        }
+
+        // Log retry attempt for network errors
+        console.log(`⟳ Retry attempt ${attempt + 1}/${config.maxRetries} for ${url} (error: ${lastError.message})`);
+      }
+
+      // Calculate exponential backoff delay
+      const delay = Math.min(
+        config.initialDelayMs * Math.pow(2, attempt),
+        config.maxDelayMs
+      );
+      
+      console.log(`⏳ Waiting ${delay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    // This should never be reached, but TypeScript needs it
+    throw lastError || new Error('Unknown error during retry');
+  }
 
   async makeApiCall(endpoint: string, options: RequestInit = {}): Promise<any> {
     // Check cache first
@@ -57,7 +111,7 @@ export class ApiClient {
     };
 
     try {
-      const response = await fetch(url, {
+      const response = await this.fetchWithRetry(url, {
         ...options,
         headers,
       });
