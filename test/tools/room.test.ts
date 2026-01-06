@@ -6,6 +6,7 @@ import {
   mockScreepsApiResponse,
   mockRoomTerrain,
   mockRoomObjects,
+  mockRoomObjectsLarge,
   mockConfig,
   clearAllMocks,
 } from '../helpers/mocks.js';
@@ -22,6 +23,13 @@ describe('Room Tools', () => {
     roomHandlers = new RoomToolHandlers(apiClient);
     global.fetch = jest.fn<typeof fetch>();
   });
+
+  // Helper function to extract JSON data from tool result
+  const extractJsonData = (resultText: string): any => {
+    const dataMatch = resultText.match(/```json\n([\s\S]*?)\n```/);
+    expect(dataMatch).toBeTruthy();
+    return JSON.parse(dataMatch![1]);
+  };
 
   describe('handleGetRoomTerrain', () => {
     it('should fetch room terrain successfully', async () => {
@@ -102,6 +110,300 @@ describe('Room Tools', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Error getting room objects');
+    });
+
+    it('should filter objects by type', async () => {
+      const mockData = mockRoomObjectsLarge('W7N3');
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockData)
+      );
+
+      const result = await roomHandlers.handleGetRoomObjects({ 
+        room: 'W7N3',
+        objectType: 'spawn'
+      });
+
+      expect(result.isError).toBeFalsy();
+      const resultText = result.content[0].text;
+      expect(resultText).toContain('W7N3');
+      
+      const data = extractJsonData(resultText);
+      
+      // Should only have spawn objects
+      expect(data.objects).toHaveLength(25);
+      data.objects.forEach((obj: any) => {
+        expect(obj.type).toBe('spawn');
+      });
+      
+      // Should have metadata
+      expect(data._metadata).toBeDefined();
+      expect(data._metadata.filteredObjects).toBe(25);
+      expect(data._metadata.totalObjects).toBe(80);
+    });
+
+    it('should filter objects by multiple types', async () => {
+      const mockData = mockRoomObjectsLarge('W7N3');
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockData)
+      );
+
+      const result = await roomHandlers.handleGetRoomObjects({ 
+        room: 'W7N3',
+        objectType: 'spawn,tower'
+      });
+
+      expect(result.isError).toBeFalsy();
+      const data = extractJsonData(result.content[0].text);
+      
+      // Should have 25 spawns + 15 towers = 40 objects
+      expect(data.objects).toHaveLength(40);
+      expect(data._metadata.filteredObjects).toBe(40);
+    });
+
+    it('should group objects by type', async () => {
+      const mockData = mockRoomObjectsLarge('W7N3');
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockData)
+      );
+
+      const result = await roomHandlers.handleGetRoomObjects({ 
+        room: 'W7N3',
+        groupByType: true
+      });
+
+      expect(result.isError).toBeFalsy();
+      const resultText = result.content[0].text;
+      expect(resultText).toContain('GROUPED BY TYPE');
+      
+      const data = extractJsonData(resultText);
+      
+      // Objects should be grouped
+      expect(data.objects).toHaveProperty('spawn');
+      expect(data.objects).toHaveProperty('extension');
+      expect(data.objects).toHaveProperty('tower');
+      expect(data.objects).toHaveProperty('creep');
+      
+      expect(data.objects.spawn).toHaveLength(25);
+      expect(data.objects.extension).toHaveLength(30);
+      expect(data.objects.tower).toHaveLength(15);
+      expect(data.objects.creep).toHaveLength(10);
+      
+      // Should have metadata
+      expect(data._metadata.groupedByType).toBe(true);
+      expect(data._metadata.groupSummary).toHaveLength(4);
+    });
+
+    it('should paginate objects', async () => {
+      const mockData = mockRoomObjectsLarge('W7N3');
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockData)
+      );
+
+      const result = await roomHandlers.handleGetRoomObjects({ 
+        room: 'W7N3',
+        page: 1,
+        pageSize: 20
+      });
+
+      expect(result.isError).toBeFalsy();
+      const resultText = result.content[0].text;
+      expect(resultText).toContain('PAGE 1 of 4');
+      expect(resultText).toContain('NEXT PAGE: Call with page=2');
+      
+      const data = extractJsonData(resultText);
+      
+      // Should have exactly 20 objects
+      expect(data.objects).toHaveLength(20);
+      
+      // Should have pagination metadata
+      expect(data._metadata.pagination).toBeDefined();
+      expect(data._metadata.pagination.page).toBe(1);
+      expect(data._metadata.pagination.pageSize).toBe(20);
+      expect(data._metadata.pagination.totalPages).toBe(4);
+      expect(data._metadata.pagination.hasNextPage).toBe(true);
+      expect(data._metadata.pagination.hasPreviousPage).toBe(false);
+    });
+
+    it('should paginate to second page', async () => {
+      const mockData = mockRoomObjectsLarge('W7N3');
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockData)
+      );
+
+      const result = await roomHandlers.handleGetRoomObjects({ 
+        room: 'W7N3',
+        page: 2,
+        pageSize: 20
+      });
+
+      expect(result.isError).toBeFalsy();
+      const resultText = result.content[0].text;
+      expect(resultText).toContain('PAGE 2 of 4');
+      expect(resultText).toContain('NEXT PAGE: Call with page=3');
+      expect(resultText).toContain('PREVIOUS PAGE: Call with page=1');
+      
+      const data = extractJsonData(resultText);
+      
+      expect(data.objects).toHaveLength(20);
+      expect(data._metadata.pagination.hasNextPage).toBe(true);
+      expect(data._metadata.pagination.hasPreviousPage).toBe(true);
+    });
+
+    it('should paginate to last page', async () => {
+      const mockData = mockRoomObjectsLarge('W7N3');
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockData)
+      );
+
+      const result = await roomHandlers.handleGetRoomObjects({ 
+        room: 'W7N3',
+        page: 4,
+        pageSize: 20
+      });
+
+      expect(result.isError).toBeFalsy();
+      const resultText = result.content[0].text;
+      expect(resultText).toContain('PAGE 4 of 4');
+      expect(resultText).toContain('LAST PAGE: All objects have been retrieved');
+      expect(resultText).toContain('PREVIOUS PAGE: Call with page=3');
+      expect(resultText).not.toContain('NEXT PAGE');
+      
+      const data = extractJsonData(resultText);
+      
+      expect(data.objects).toHaveLength(20);
+      expect(data._metadata.pagination.hasNextPage).toBe(false);
+      expect(data._metadata.pagination.hasPreviousPage).toBe(true);
+    });
+
+    it('should combine filtering and pagination', async () => {
+      const mockData = mockRoomObjectsLarge('W7N3');
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockData)
+      );
+
+      const result = await roomHandlers.handleGetRoomObjects({ 
+        room: 'W7N3',
+        objectType: 'extension',
+        page: 1,
+        pageSize: 10
+      });
+
+      expect(result.isError).toBeFalsy();
+      const data = extractJsonData(result.content[0].text);
+      
+      // Should have 10 extensions (page 1 of filtered 30 extensions)
+      expect(data.objects).toHaveLength(10);
+      data.objects.forEach((obj: any) => {
+        expect(obj.type).toBe('extension');
+      });
+      
+      expect(data._metadata.pagination.totalPages).toBe(3);
+      expect(data._metadata.filteredObjects).toBe(30);
+      expect(data._metadata.totalObjects).toBe(80);
+    });
+
+    it('should handle filtering that returns zero objects', async () => {
+      const mockData = mockRoomObjectsLarge('W7N3');
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockData)
+      );
+
+      const result = await roomHandlers.handleGetRoomObjects({ 
+        room: 'W7N3',
+        objectType: 'nonexistent'
+      });
+
+      expect(result.isError).toBeFalsy();
+      const data = extractJsonData(result.content[0].text);
+      
+      // Should have zero objects
+      expect(data.objects).toHaveLength(0);
+      expect(data._metadata.filteredObjects).toBe(0);
+      expect(data._metadata.totalObjects).toBe(80);
+      
+      // Should have helpful guidance
+      const resultText = result.content[0].text;
+      expect(resultText).toContain('NO MATCHES');
+    });
+
+    it('should handle pagination beyond available pages', async () => {
+      const mockData = mockRoomObjectsLarge('W7N3');
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockData)
+      );
+
+      const result = await roomHandlers.handleGetRoomObjects({ 
+        room: 'W7N3',
+        page: 100,
+        pageSize: 20
+      });
+
+      expect(result.isError).toBeFalsy();
+      const data = extractJsonData(result.content[0].text);
+      
+      // Should return empty page
+      expect(data.objects).toHaveLength(0);
+      expect(data._metadata.pagination.page).toBe(100);
+      expect(data._metadata.pagination.objectsOnPage).toBe(0);
+      
+      // Should have helpful guidance
+      const resultText = result.content[0].text;
+      expect(resultText).toContain('EMPTY PAGE');
+    });
+
+    it('should handle pagination with zero filtered objects', async () => {
+      const mockData = mockRoomObjectsLarge('W7N3');
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockData)
+      );
+
+      const result = await roomHandlers.handleGetRoomObjects({ 
+        room: 'W7N3',
+        objectType: 'nonexistent',
+        page: 1,
+        pageSize: 20
+      });
+
+      expect(result.isError).toBeFalsy();
+      const data = extractJsonData(result.content[0].text);
+      
+      // Should return empty page with totalPages = 1
+      expect(data.objects).toHaveLength(0);
+      expect(data._metadata.pagination.totalPages).toBe(1);
+      expect(data._metadata.pagination.page).toBe(1);
+      expect(data._metadata.pagination.hasNextPage).toBe(false);
+      expect(data._metadata.filteredObjects).toBe(0);
+      
+      const resultText = result.content[0].text;
+      expect(resultText).toContain('PAGE 1 of 1');
+      expect(resultText).toContain('EMPTY PAGE');
+    });
+
+    it('should prioritize grouping over pagination when both are specified', async () => {
+      const mockData = mockRoomObjectsLarge('W7N3');
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockData)
+      );
+
+      const result = await roomHandlers.handleGetRoomObjects({ 
+        room: 'W7N3',
+        groupByType: true,
+        page: 2,  // This should be ignored
+        pageSize: 10
+      });
+
+      expect(result.isError).toBeFalsy();
+      const data = extractJsonData(result.content[0].text);
+      
+      // Should be grouped, not paginated
+      expect(data._metadata.groupedByType).toBe(true);
+      expect(data._metadata.pagination).toBeUndefined();
+      expect(data.objects).toHaveProperty('spawn');
+      expect(data.objects).toHaveProperty('extension');
+      
+      const resultText = result.content[0].text;
+      expect(resultText).toContain('GROUPED BY TYPE');
+      expect(resultText).not.toContain('PAGE');
     });
   });
 

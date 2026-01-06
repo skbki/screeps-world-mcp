@@ -87,6 +87,68 @@ export function mockRoomObjects(roomName: string) {
 }
 
 /**
+ * Mock room objects data with many objects for testing pagination
+ */
+export function mockRoomObjectsLarge(roomName: string) {
+  const objects: any[] = [];
+  
+  // Add 25 spawns
+  for (let i = 0; i < 25; i++) {
+    objects.push({
+      _id: `spawn-${i}`,
+      type: 'spawn',
+      room: roomName,
+      x: i % 10,
+      y: Math.floor(i / 10),
+    });
+  }
+  
+  // Add 30 extensions
+  for (let i = 0; i < 30; i++) {
+    objects.push({
+      _id: `extension-${i}`,
+      type: 'extension',
+      room: roomName,
+      x: i % 10,
+      y: Math.floor(i / 10) + 3,
+    });
+  }
+  
+  // Add 15 towers
+  for (let i = 0; i < 15; i++) {
+    objects.push({
+      _id: `tower-${i}`,
+      type: 'tower',
+      room: roomName,
+      x: i % 10,
+      y: Math.floor(i / 10) + 6,
+    });
+  }
+  
+  // Add 10 creeps
+  for (let i = 0; i < 10; i++) {
+    objects.push({
+      _id: `creep-${i}`,
+      type: 'creep',
+      room: roomName,
+      x: i,
+      y: 9,
+    });
+  }
+  
+  return {
+    ok: 1,
+    objects,
+    users: {
+      'test-user': {
+        _id: 'user-123',
+        username: 'test-user',
+      },
+    },
+  };
+}
+
+/**
  * Mock user authentication data
  */
 export function mockAuthMe() {

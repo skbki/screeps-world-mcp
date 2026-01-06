@@ -152,12 +152,50 @@ After completing the [setup](#setup), add to your `mcp.json`:
 }
 ```
 
+### Managing Large Room Object Outputs
+
+The `get_room_objects` tool supports several options to manage large result sets:
+
+**Pagination**: Retrieve objects in pages to reduce output size
+```typescript
+// Get first page of objects (50 per page by default)
+get_room_objects({ room: "E1N8", page: 1, pageSize: 50 })
+
+// Get next page
+get_room_objects({ room: "E1N8", page: 2, pageSize: 50 })
+```
+
+**Filtering by Type**: Get only specific object types
+```typescript
+// Get only spawns
+get_room_objects({ room: "E1N8", objectType: "spawn" })
+
+// Get multiple types
+get_room_objects({ room: "E1N8", objectType: "spawn,tower,extension" })
+```
+
+**Grouping**: Organize objects by their type
+```typescript
+// Group all objects by type for easier analysis
+get_room_objects({ room: "E1N8", groupByType: true })
+```
+
+**Combining Options**: Use multiple options together
+```typescript
+// Get first page of extensions only (filtering + pagination)
+get_room_objects({ room: "E1N8", objectType: "extension", page: 1, pageSize: 20 })
+
+// Note: groupByType and pagination are mutually exclusive
+// If both are specified, grouping takes precedence and pagination is ignored
+```
+
 ## AI Usage Guidelines
 
 1. **Follow Response Guidance**: Each response includes completion indicators and suggested next steps
 2. **Avoid Redundant Calls**: The server detects and warns against repetitive identical calls  
 3. **Start with Resources**: Get foundational data (version, shards) before using tools for specific queries
 4. **Respect Rate Limits**: Monitor remaining API calls shown in responses
+5. **Use Pagination**: For rooms with many objects, use pagination or filtering to reduce output size
 
 ## Available Resources
 
@@ -178,6 +216,10 @@ Tools allow interactive queries with parameters:
 ### Room Information
 - **get_room_terrain**: Get terrain information for a specific room
 - **get_room_objects**: Get objects and users in a specific room
+  - Supports pagination with `page` and `pageSize` parameters (default: 50, max: 200)
+  - Supports filtering by object type with `objectType` parameter (e.g., "spawn,tower,extension")
+  - Supports grouping by type with `groupByType` parameter for easier analysis
+  - Use these options to manage large result sets and reduce output size
 - **get_room_overview**: Get room overview and statistics
 - **get_room_status**: Get room status information
 
