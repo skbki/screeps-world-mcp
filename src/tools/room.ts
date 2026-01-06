@@ -137,7 +137,8 @@ export class RoomToolHandlers {
       const startIndex = (page - 1) * pageSize;
       const endIndex = startIndex + pageSize;
       const paginatedObjects = objects.slice(startIndex, endIndex);
-      const totalPages = Math.ceil(objects.length / pageSize);
+      // Ensure totalPages is at least 1 when pagination is requested, even for empty results
+      const totalPages = Math.max(1, Math.ceil(objects.length / pageSize));
 
       return {
         ...data,
@@ -194,21 +195,45 @@ export class RoomToolHandlers {
       if (!hasNextPage) {
         guidance.push('✅ LAST PAGE: All objects have been retrieved');
       }
+      
+      // Context-aware analysis guidance for paginated results
+      if (objectsOnPage === 0) {
+        guidance.push('ℹ️ EMPTY PAGE: No objects found on this page');
+        guidance.push('🎯 SUGGESTION: Try a different page number or adjust filters');
+      } else {
+        guidance.push('📊 ANALYZE THIS PAGE: Process the structures, creeps, and resources on this page');
+        guidance.push('🎯 NEXT: Use objects from this page; call next page if more data needed');
+        guidance.push('Analyze structures on this page to understand room development');
+        guidance.push('Check for enemy creeps or defensive structures on this page');
+        guidance.push('Look for resource deposits and energy sources on this page');
+      }
     } else if (data._metadata?.groupedByType) {
       guidance.push('📊 GROUPED BY TYPE: Objects organized by their type for easier analysis');
       guidance.push('🎯 ANALYZE: Review each group to understand room composition');
+      guidance.push('Analyze structure groups to understand room development level');
+      guidance.push('Check creep groups for enemy creeps or defensive forces');
+      guidance.push('Look for resource groups to identify energy sources and deposits');
     } else if (data._metadata?.filteredObjects !== undefined) {
-      guidance.push(`🔍 FILTERED: Showing ${data._metadata.filteredObjects} of ${data._metadata.totalObjects} objects`);
+      const filteredCount = data._metadata.filteredObjects;
+      guidance.push(`🔍 FILTERED: Showing ${filteredCount} of ${data._metadata.totalObjects} objects`);
+      
+      if (filteredCount === 0) {
+        guidance.push('ℹ️ NO MATCHES: No objects match the specified filter');
+        guidance.push('🎯 SUGGESTION: Try different object types or remove the filter');
+      } else {
+        guidance.push('📊 ANALYZE FILTERED SET: Focus on objects matching your filter criteria');
+        guidance.push('🎯 NEXT: Use filtered data to answer your specific query');
+        guidance.push('Analyze filtered structures to understand specific aspects of the room');
+      }
     } else {
       guidance.push('✅ COMPLETE: All room objects retrieved successfully - NO MORE CALLS NEEDED');
       guidance.push('🛑 STOP: This data is complete - do NOT call get_room_objects again for this room');
+      guidance.push('📊 ANALYZE: Process the structures, creeps, and resources from this response');
+      guidance.push('🎯 NEXT: Use this data to understand room composition and development level');
+      guidance.push('Analyze structures to understand room development level');
+      guidance.push('Check for enemy creeps or defensive structures');
+      guidance.push('Look for resource deposits and energy sources');
     }
-
-    guidance.push('📊 ANALYZE: Process the structures, creeps, and resources from this response');
-    guidance.push('🎯 NEXT: Use this data to understand room composition and development level');
-    guidance.push('Analyze structures to understand room development level');
-    guidance.push('Check for enemy creeps or defensive structures');
-    guidance.push('Look for resource deposits and energy sources');
 
     return guidance;
   }

@@ -182,8 +182,11 @@ get_room_objects({ room: "E1N8", groupByType: true })
 
 **Combining Options**: Use multiple options together
 ```typescript
-// Get first page of extensions only
+// Get first page of extensions only (filtering + pagination)
 get_room_objects({ room: "E1N8", objectType: "extension", page: 1, pageSize: 20 })
+
+// Note: groupByType and pagination are mutually exclusive
+// If both are specified, grouping takes precedence and pagination is ignored
 ```
 
 ## AI Usage Guidelines

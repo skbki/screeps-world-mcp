@@ -51,7 +51,7 @@ export class ToolRegistry {
       {
         title: 'Get Room Objects',
         description:
-          'Get objects and users in a specific room. Supports pagination (page/pageSize), filtering by object type, and grouping by type to manage large result sets. For large rooms, use pagination or filtering to reduce output size.',
+          'Get objects and users in a specific room. Supports pagination (page/pageSize), filtering by object type, and grouping by type to manage large result sets. For large rooms, use pagination or filtering to reduce output size. Note: groupByType and pagination are mutually exclusive; if both are specified, grouping takes precedence.',
         inputSchema: roomSchemas.roomObjects,
       },
       (params) => this.roomHandlers.handleGetRoomObjects(params),
