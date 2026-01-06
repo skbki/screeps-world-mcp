@@ -59,6 +59,17 @@ export interface RoomOptions extends ShardOptions {
   room: string;
 }
 
+export interface RoomObjectsOptions extends RoomOptions {
+  /** Filter by object type(s). Can be a single type or comma-separated list */
+  objectType?: string;
+  /** Group objects by their type */
+  groupByType?: boolean;
+  /** Page number for pagination (1-based) */
+  page?: number;
+  /** Number of objects per page (default: 50, max: 200) */
+  pageSize?: number;
+}
+
 export interface UserFindOptions {
   id?: string;
   username?: string;

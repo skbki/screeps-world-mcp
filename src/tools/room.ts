@@ -4,6 +4,7 @@ import {
   ToolResult,
   RoomTerrainOptions,
   RoomOptions,
+  RoomObjectsOptions,
   RoomOverviewOptions,
   DistanceCalculationOptions,
   RoomCoordinates,
@@ -38,23 +39,24 @@ export class RoomToolHandlers {
     }
   }
 
-  async handleGetRoomObjects(params: RoomOptions): Promise<ToolResult> {
+  async handleGetRoomObjects(params: RoomObjectsOptions): Promise<ToolResult> {
     try {
-      const endpoint = this.apiClient.buildEndpointWithQuery('/game/room-objects', params);
+      // Build endpoint with only the room and shard parameters
+      const apiParams: { room: string; shard?: string } = { room: params.room };
+      if (params.shard) {
+        apiParams.shard = params.shard;
+      }
+      
+      const endpoint = this.apiClient.buildEndpointWithQuery('/game/room-objects', apiParams);
       const data = await this.apiClient.makeApiCall(endpoint);
 
-      const additionalGuidance = [
-        '✅ COMPLETE: All room objects retrieved successfully - NO MORE CALLS NEEDED',
-        '🛑 STOP: This data is complete - do NOT call get_room_objects again for this room',
-        '📊 ANALYZE: Process the structures, creeps, and resources from this response',
-        '🎯 NEXT: Use this data to understand room composition and development level',
-        'Analyze structures to understand room development level',
-        'Check for enemy creeps or defensive structures',
-        'Look for resource deposits and energy sources',
-      ];
+      // Process the data for pagination and grouping
+      const processedData = this.processRoomObjectsData(data, params);
+
+      const additionalGuidance = this.buildRoomObjectsGuidance(processedData, params);
 
       return this.apiClient.createEnhancedToolResult(
-        data,
+        processedData,
         endpoint,
         `Room Objects Analysis for ${params.room}`,
         false,
@@ -77,6 +79,135 @@ export class RoomToolHandlers {
 
       return this.apiClient.createToolResult(`Error getting room objects: ${errorMessage}`, true);
     }
+  }
+
+  private processRoomObjectsData(data: any, params: RoomObjectsOptions): any {
+    // If no objects in response, return as-is
+    if (!data?.objects || !Array.isArray(data.objects)) {
+      return data;
+    }
+
+    let objects = data.objects;
+    const totalObjects = objects.length;
+
+    // Filter by object type if specified
+    if (params.objectType) {
+      const types = params.objectType.split(',').map((t) => t.trim().toLowerCase());
+      objects = objects.filter((obj: any) => 
+        obj.type && types.includes(obj.type.toLowerCase())
+      );
+    }
+
+    // Group by type if requested
+    if (params.groupByType) {
+      const grouped: Record<string, any[]> = {};
+      objects.forEach((obj: any) => {
+        const type = obj.type || 'unknown';
+        if (!grouped[type]) {
+          grouped[type] = [];
+        }
+        grouped[type].push(obj);
+      });
+
+      // Calculate metadata for each group
+      const groupSummary = Object.entries(grouped).map(([type, items]) => ({
+        type,
+        count: items.length,
+      }));
+
+      return {
+        ...data,
+        objects: grouped,
+        _metadata: {
+          totalObjects,
+          filteredObjects: objects.length,
+          groupedByType: true,
+          groupSummary,
+        },
+      };
+    }
+
+    // Paginate if requested
+    if (params.page !== undefined) {
+      const page = Math.max(1, params.page || 1);
+      const pageSize = Math.min(200, Math.max(1, params.pageSize || 50));
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedObjects = objects.slice(startIndex, endIndex);
+      const totalPages = Math.ceil(objects.length / pageSize);
+
+      return {
+        ...data,
+        objects: paginatedObjects,
+        _metadata: {
+          totalObjects,
+          filteredObjects: objects.length,
+          pagination: {
+            page,
+            pageSize,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPreviousPage: page > 1,
+            objectsOnPage: paginatedObjects.length,
+            startIndex: startIndex + 1,
+            endIndex: Math.min(endIndex, objects.length),
+          },
+        },
+      };
+    }
+
+    // Return with metadata even if not paginating
+    if (params.objectType || objects.length !== totalObjects) {
+      return {
+        ...data,
+        objects,
+        _metadata: {
+          totalObjects,
+          filteredObjects: objects.length,
+        },
+      };
+    }
+
+    return data;
+  }
+
+  private buildRoomObjectsGuidance(data: any, params: RoomObjectsOptions): string[] {
+    const guidance: string[] = [];
+
+    // Check if data has pagination metadata
+    if (data._metadata?.pagination) {
+      const { page, totalPages, hasNextPage, hasPreviousPage, objectsOnPage } = data._metadata.pagination;
+      
+      guidance.push(`📄 PAGE ${page} of ${totalPages}: Showing ${objectsOnPage} objects`);
+      
+      if (hasNextPage) {
+        guidance.push(`➡️ NEXT PAGE: Call with page=${page + 1} to see more objects`);
+      }
+      
+      if (hasPreviousPage) {
+        guidance.push(`⬅️ PREVIOUS PAGE: Call with page=${page - 1} to see previous objects`);
+      }
+      
+      if (!hasNextPage) {
+        guidance.push('✅ LAST PAGE: All objects have been retrieved');
+      }
+    } else if (data._metadata?.groupedByType) {
+      guidance.push('📊 GROUPED BY TYPE: Objects organized by their type for easier analysis');
+      guidance.push('🎯 ANALYZE: Review each group to understand room composition');
+    } else if (data._metadata?.filteredObjects !== undefined) {
+      guidance.push(`🔍 FILTERED: Showing ${data._metadata.filteredObjects} of ${data._metadata.totalObjects} objects`);
+    } else {
+      guidance.push('✅ COMPLETE: All room objects retrieved successfully - NO MORE CALLS NEEDED');
+      guidance.push('🛑 STOP: This data is complete - do NOT call get_room_objects again for this room');
+    }
+
+    guidance.push('📊 ANALYZE: Process the structures, creeps, and resources from this response');
+    guidance.push('🎯 NEXT: Use this data to understand room composition and development level');
+    guidance.push('Analyze structures to understand room development level');
+    guidance.push('Check for enemy creeps or defensive structures');
+    guidance.push('Look for resource deposits and energy sources');
+
+    return guidance;
   }
 
   async handleGetRoomOverview(params: RoomOverviewOptions): Promise<ToolResult> {
@@ -203,6 +334,10 @@ export class RoomToolHandlers {
       roomObjects: {
         room: z.string().describe('Room name (e.g., E1N8)'),
         shard: z.string().optional().describe('Shard name (default: shard0)'),
+        objectType: z.string().optional().describe('Filter by object type(s), e.g., "spawn" or "spawn,tower,extension"'),
+        groupByType: z.boolean().optional().describe('Group objects by their type for easier analysis'),
+        page: z.number().int().min(1).optional().describe('Page number for pagination (1-based)'),
+        pageSize: z.number().int().min(1).max(200).optional().describe('Number of objects per page (default: 50, max: 200)'),
       },
       roomOverview: {
         room: z.string().describe('Room name (e.g., E1N8)'),

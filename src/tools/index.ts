@@ -51,7 +51,7 @@ export class ToolRegistry {
       {
         title: 'Get Room Objects',
         description:
-          'Get objects and users in a specific room. Call this tool ONCE per room - the response contains complete room data. Do NOT call repeatedly for the same room.',
+          'Get objects and users in a specific room. Supports pagination (page/pageSize), filtering by object type, and grouping by type to manage large result sets. For large rooms, use pagination or filtering to reduce output size.',
         inputSchema: roomSchemas.roomObjects,
       },
       (params) => this.roomHandlers.handleGetRoomObjects(params),
