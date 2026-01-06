@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { ScreepsWorldMcp } from './server/screeps.js';
 
 const service = new ScreepsWorldMcp();
