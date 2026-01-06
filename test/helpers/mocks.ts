@@ -36,13 +36,19 @@ export function mockScreepsApiResponse(
 }
 
 /**
- * Mock room terrain data
+ * Mock room terrain data with deterministic pattern
  */
 export function mockRoomTerrain(roomName: string) {
+  // Create deterministic terrain pattern based on room name hash
+  const hash = roomName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  
   return {
     ok: 1,
-    terrain: Array(50).fill(null).map(() => 
-      Array(50).fill(null).map(() => Math.floor(Math.random() * 3))
+    terrain: Array(50).fill(null).map((_, y) => 
+      Array(50).fill(null).map((_, x) => {
+        // Generate deterministic terrain based on position and room hash
+        return ((x + y + hash) % 3);
+      })
     ),
   };
 }
