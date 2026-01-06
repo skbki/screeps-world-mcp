@@ -53,7 +53,8 @@ describe('API Client', () => {
         })
       );
 
-      await expect(apiClient.makeApiCall('/test-429')).rejects.toThrow('Rate limit exceeded');
+      // With short retry delays (10ms, 20ms, 40ms), should complete quickly
+      await expect(apiClient.makeApiCall('/test-429')).rejects.toThrow(/Rate limit exceeded/);
     });
 
     it('should detect loops even with cached data', async () => {

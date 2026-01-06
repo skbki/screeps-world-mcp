@@ -1,9 +1,17 @@
-import { ScreepsConfig } from '../types/index.js';
+import { ScreepsConfig, RetryConfig } from '../types/index.js';
+
+export const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxRetries: 3,
+  initialDelayMs: 1000,
+  maxDelayMs: 10000,
+  retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+};
 
 export const DEFAULT_CONFIG: ScreepsConfig = {
   baseUrl: process.env.SCREEPS_BASE_URL || 'https://screeps.com/api',
   token: process.env.SCREEPS_TOKEN,
   username: process.env.SCREEPS_USERNAME,
+  retryConfig: DEFAULT_RETRY_CONFIG,
 };
 
 export class ConfigManager {
@@ -54,5 +62,19 @@ export class ConfigManager {
     }
 
     return headers;
+  }
+
+  /**
+   * Returns the effective retry configuration for API requests.
+   *
+   * If a custom {@link RetryConfig} has been provided via the constructor or
+   * {@link updateConfig}, that configuration is returned. Otherwise, this
+   * method falls back to {@link DEFAULT_RETRY_CONFIG}.
+   *
+   * @returns {RetryConfig} The currently active retry configuration, with a
+   *          fallback to the default configuration when no custom value is set.
+   */
+  getRetryConfig(): RetryConfig {
+    return this.config.retryConfig || DEFAULT_RETRY_CONFIG;
   }
 }

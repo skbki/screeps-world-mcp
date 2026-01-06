@@ -161,4 +161,10 @@ export const mockConfig = {
   baseUrl: 'https://screeps.com/api',
   token: 'test-token-123',
   username: 'test-user',
+  retryConfig: {
+    maxRetries: 3,
+    initialDelayMs: 10,  // Short delay for fast tests
+    maxDelayMs: 100,     // Cap at 100ms for tests
+    retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+  },
 };
