@@ -91,6 +91,8 @@ export class RoomToolHandlers {
     const totalObjects = objects.length;
 
     // Filter by object type if specified
+    // Note: Object types are validated by the Screeps API, not client-side
+    // Common types include: spawn, extension, tower, creep, controller, road, etc.
     if (params.objectType) {
       const types = params.objectType.split(',').map((t) => t.trim().toLowerCase());
       objects = objects.filter((obj: any) => 
@@ -128,6 +130,7 @@ export class RoomToolHandlers {
     }
 
     // Paginate if requested
+    // Note: Zod schema validates page >= 1, but Math.max provides defensive programming
     if (params.page !== undefined) {
       const page = Math.max(1, params.page);
       const pageSize = Math.min(200, Math.max(1, params.pageSize || 50));
