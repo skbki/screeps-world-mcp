@@ -5,6 +5,13 @@ import { ApiClient } from '../utils/api.js';
 import { ResourceRegistry } from '../resources/index.js';
 import { ToolRegistry } from '../tools/index.js';
 import { ScreepsConfig } from '../types/index.js';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8'));
 
 export class ScreepsWorldMcp {
   private server: McpServer;
@@ -19,7 +26,7 @@ export class ScreepsWorldMcp {
 
     this.server = new McpServer({
       name: 'screeps-world-mcp',
-      version: '1.0.0',
+      version: pkg.version,
       description: 'MCP server for Screeps World Web API access',
     });
 
@@ -44,7 +51,7 @@ export class ScreepsWorldMcp {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
 
-    console.log('Screeps World MCP Service is running...');
+    console.log(`Screeps World MCP Service v${pkg.version} is running...`);
     console.log('Screeps Server:', this.configManager.getBaseUrl());
   }
 
