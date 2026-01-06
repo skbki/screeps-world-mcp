@@ -61,6 +61,79 @@ Format code with Prettier:
 npm run format
 ```
 
+## Testing
+
+The project includes a comprehensive test suite using Jest:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+
+# Run only integration tests
+npm run test:integration
+```
+
+### Test Coverage
+
+Current test coverage: **82%+ across the codebase**
+
+- **API Client**: Tests for caching, loop detection, error handling, rate limiting
+- **Configuration**: Tests for environment variables, config management
+- **Resources**: Tests for all resource handlers (auth, game, user)
+- **Tools**: Tests for all tool handlers (room, user, market, misc)
+- **Integration**: End-to-end tests for MCP server functionality
+
+### Writing Tests
+
+Tests are located in the `test/` directory and mirror the `src/` structure:
+
+```
+test/
+├── helpers/
+│   └── mocks.ts          # Mock utilities and test data
+├── config/
+│   └── index.test.ts     # Config manager tests
+├── utils/
+│   └── api.test.ts       # API client tests
+├── resources/
+│   ├── auth.test.ts      # Auth resource tests
+│   ├── game.test.ts      # Game resource tests
+│   └── user.test.ts      # User resource tests
+├── tools/
+│   ├── room.test.ts      # Room tool tests
+│   ├── user.test.ts      # User tool tests
+│   ├── market.test.ts    # Market tool tests
+│   └── misc.test.ts      # Misc tool tests
+└── integration/
+    └── mcp-server.test.ts # Integration tests
+```
+
+Example test:
+```typescript
+import { describe, it, expect, beforeEach } from '@jest/globals';
+import { ApiClient } from '../../src/utils/api.js';
+import { ConfigManager } from '../../src/config/index.js';
+
+describe('ApiClient', () => {
+  let apiClient: ApiClient;
+  
+  beforeEach(() => {
+    const config = new ConfigManager({ token: 'test-token' });
+    apiClient = new ApiClient(config);
+  });
+  
+  it('should make API calls successfully', async () => {
+    // Test implementation
+  });
+});
+```
+
 ## Usage Examples
 
 After completing the [setup](#setup), add to your `mcp.json`:
