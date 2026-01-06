@@ -115,7 +115,7 @@ describe('User Tools', () => {
   });
 
   describe('handleGetUserRooms', () => {
-    it('should fetch user rooms successfully', async () => {
+    it('should fetch user rooms with user ID directly', async () => {
       const mockData = {
         ok: 1,
         rooms: ['W7N3', 'W8N3'],
@@ -124,10 +124,80 @@ describe('User Tools', () => {
         await mockScreepsApiResponse(mockData)
       );
 
-      const result = await userHandlers.handleGetUserRooms({ id: 'user-123' });
+      // Use a valid 24-char hex ID
+      const result = await userHandlers.handleGetUserRooms({ identifier: '6956c443a04dcb0012a2f404' });
 
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain('rooms');
+      // Should call rooms endpoint directly with the ID
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/user/rooms'),
+        expect.any(Object)
+      );
+    });
+
+    it('should auto-lookup user ID when given a username', async () => {
+      // First call returns user lookup result
+      const mockUserData = {
+        ok: 1,
+        user: {
+          _id: '6956c443a04dcb0012a2f404',
+          username: 'test-user',
+        },
+      };
+      // Second call returns rooms data
+      const mockRoomsData = {
+        ok: 1,
+        rooms: ['W7N3', 'W8N3'],
+      };
+
+      (global.fetch as jest.MockedFunction<typeof fetch>)
+        .mockResolvedValueOnce(await mockScreepsApiResponse(mockUserData))
+        .mockResolvedValueOnce(await mockScreepsApiResponse(mockRoomsData));
+
+      const result = await userHandlers.handleGetUserRooms({ identifier: 'test-user' });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain('rooms');
+      // Should have called find first, then rooms
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('/user/find'),
+        expect.any(Object)
+      );
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('/user/rooms'),
+        expect.any(Object)
+      );
+    });
+
+    it('should return error when username is not found', async () => {
+      const mockUserData = {
+        ok: 1,
+        user: null,
+      };
+
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse(mockUserData)
+      );
+
+      const result = await userHandlers.handleGetUserRooms({ identifier: 'nonexistent-user' });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("User 'nonexistent-user' not found");
+    });
+
+    it('should handle API errors', async () => {
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
+        new Error('Network error')
+      );
+
+      const result = await userHandlers.handleGetUserRooms({ identifier: 'test-user' });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Error');
     });
   });
 

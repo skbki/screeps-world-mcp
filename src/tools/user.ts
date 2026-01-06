@@ -60,13 +60,47 @@ export class UserToolHandlers {
     }
   }
 
+  /**
+   * Check if a string looks like a MongoDB ObjectId (24 hex characters)
+   */
+  private isUserId(identifier: string): boolean {
+    return /^[a-f0-9]{24}$/i.test(identifier);
+  }
+
+  /**
+   * Resolve a username to a user ID by calling the find_user API
+   */
+  private async resolveUserId(username: string): Promise<string> {
+    const endpoint = this.apiClient.buildEndpointWithQuery('/user/find', { username });
+    const data = await this.apiClient.makeApiCall(endpoint);
+
+    if (!data.user || !data.user._id) {
+      throw new Error(`User '${username}' not found`);
+    }
+
+    return data.user._id;
+  }
+
   async handleGetUserRooms(params: UserRoomsOptions): Promise<ToolResult> {
     try {
-      const endpoint = this.apiClient.buildEndpointWithQuery('/user/rooms', params);
+      let userId: string;
+      let displayName: string;
+
+      // Check if identifier is a user ID (24 hex chars) or username
+      if (this.isUserId(params.identifier)) {
+        userId = params.identifier;
+        displayName = params.identifier;
+      } else {
+        // It's a username, resolve to user ID
+        userId = await this.resolveUserId(params.identifier);
+        displayName = `${params.identifier} (${userId})`;
+      }
+
+      const endpoint = this.apiClient.buildEndpointWithQuery('/user/rooms', { id: userId });
       const data = await this.apiClient.makeApiCall(endpoint);
 
       const additionalGuidance = [
-        `User rooms data retrieved for user ID ${params.id}`,
+        `User rooms data retrieved for ${displayName}`,
         'Review room ownership and control levels',
         'Identify rooms that need attention or optimization',
         'Room data is complete - analyze the provided information',
@@ -75,7 +109,7 @@ export class UserToolHandlers {
       return this.apiClient.createEnhancedToolResult(
         data,
         endpoint,
-        `User Rooms (${params.id})`,
+        `User Rooms (${displayName})`,
         false,
         additionalGuidance,
       );
@@ -231,7 +265,9 @@ export class UserToolHandlers {
         interval: z.enum(['8', '180', '1440']).optional().describe('Interval: 8=1hr, 180=24hr, 1440=7days'),
       },
       getUserRooms: {
-        id: z.string().describe('User ID (can be found using find_user tool)'),
+        identifier: z
+          .string()
+          .describe('Username or user ID (24-character hex). Accepts username directly - will auto-lookup user ID.'),
       },
       findUser: {
         id: z.string().optional().describe('User ID'),

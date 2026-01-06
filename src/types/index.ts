@@ -104,7 +104,8 @@ export interface UserOverviewOptions extends IntervalOptions {
 }
 
 export interface UserRoomsOptions {
-  id: string;
+  /** User identifier - can be either a username or a 24-character hex user ID */
+  identifier: string;
 }
 
 export interface RoomTerrainOptions extends RoomOptions {
