@@ -87,7 +87,79 @@ Current test coverage: **82%+ across the codebase**
 - **Configuration**: Tests for environment variables, config management
 - **Resources**: Tests for all resource handlers (auth, game, user)
 - **Tools**: Tests for all tool handlers (room, user, market, misc)
+- **Error Handling**: Tests for all custom error classes and error boundaries
 - **Integration**: End-to-end tests for MCP server functionality
+
+## Error Handling
+
+The codebase uses a standardized error handling pattern with custom error classes for consistent error reporting:
+
+### Error Classes
+
+- **`ScreepsApiError`**: Base error class for API-related errors. Includes error code, HTTP status code, and optional context.
+- **`ValidationError`**: Thrown when input validation fails (e.g., missing required parameters, invalid values).
+- **`RateLimitError`**: Thrown when API rate limit is exceeded (HTTP 429). Includes retry-after information when available.
+- **`AuthenticationError`**: Thrown when authentication fails (HTTP 401). Indicates invalid or expired credentials.
+
+### Error Handling Pattern
+
+The error handling follows a consistent pattern:
+
+1. **Tool Handlers**: Throw errors when something goes wrong (don't catch and return error values)
+2. **Error Boundaries**: Tool registry catches errors and converts them to ToolResult with `isError=true`
+3. **Resource Handlers**: Catch errors and return error content (as designed for MCP resources)
+4. **API Client**: Throws typed errors (ScreepsApiError, RateLimitError, AuthenticationError)
+
+### Example Error Handling
+
+```typescript
+// In tool handlers - throw errors
+async handleGetRoomTerrain(params: RoomTerrainOptions): Promise<ToolResult> {
+  // Throws ScreepsApiError, RateLimitError, AuthenticationError, etc.
+  const data = await this.apiClient.makeApiCall(endpoint);
+  return this.apiClient.createEnhancedToolResult(data, endpoint, description);
+}
+
+// Error boundary in tool registry converts to ToolResult
+private async handleToolError(handler: () => Promise<ToolResult>): Promise<ToolResult> {
+  try {
+    return await handler();
+  } catch (error) {
+    // Convert error to ToolResult with detailed error message
+    if (isRateLimitError(error)) {
+      errorMessage = `Rate Limit Error: ${error.message}`;
+      // Include retry-after information
+    } else if (isAuthenticationError(error)) {
+      errorMessage = `Authentication Error: ${error.message}`;
+      // Guide user to check credentials
+    }
+    // ... handle other error types
+    return this.apiClient.createToolResult(errorMessage, true);
+  }
+}
+```
+
+### Type Guards
+
+Use type guards to check error types:
+
+```typescript
+import { isScreepsApiError, isRateLimitError, isAuthenticationError, isValidationError } from './utils/errors.js';
+
+try {
+  // API call
+} catch (error) {
+  if (isRateLimitError(error)) {
+    console.log(`Rate limited. Retry after ${error.retryAfter} seconds`);
+  } else if (isAuthenticationError(error)) {
+    console.log('Authentication failed. Check your token.');
+  } else if (isScreepsApiError(error)) {
+    console.log(`API Error: ${error.code} - ${error.message}`);
+  }
+}
+```
+
+## Testing
 
 ### Writing Tests
 

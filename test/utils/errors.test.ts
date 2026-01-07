@@ -112,9 +112,10 @@ describe('Error Classes', () => {
     it('should wrap standard Error in ScreepsApiError', () => {
       const originalError = new Error('Network error');
 
+      expect(() => handleApiError(originalError)).toThrow(ScreepsApiError);
+      
       try {
         handleApiError(originalError);
-        fail('Should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(ScreepsApiError);
         expect((error as ScreepsApiError).message).toBe('Network error');
@@ -126,9 +127,10 @@ describe('Error Classes', () => {
     it('should wrap non-Error objects in ScreepsApiError', () => {
       const originalError = 'String error';
 
+      expect(() => handleApiError(originalError)).toThrow(ScreepsApiError);
+      
       try {
         handleApiError(originalError);
-        fail('Should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(ScreepsApiError);
         expect((error as ScreepsApiError).message).toBe('An unknown error occurred');

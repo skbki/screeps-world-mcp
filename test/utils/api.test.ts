@@ -42,9 +42,10 @@ describe('API Client', () => {
         await mockScreepsApiResponse({ error: 'Not found' }, 404)
       );
 
+      await expect(apiClient.makeApiCall('/test-404')).rejects.toThrow(ScreepsApiError);
+      
       try {
         await apiClient.makeApiCall('/test-404');
-        fail('Should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(ScreepsApiError);
         expect((error as ScreepsApiError).message).toContain('HTTP 404');
@@ -62,9 +63,10 @@ describe('API Client', () => {
         })
       );
 
+      await expect(apiClient.makeApiCall('/test-429')).rejects.toThrow(RateLimitError);
+      
       try {
         await apiClient.makeApiCall('/test-429');
-        fail('Should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(RateLimitError);
         expect((error as RateLimitError).message).toContain('Rate limit exceeded');
@@ -78,9 +80,10 @@ describe('API Client', () => {
         await mockScreepsApiResponse({ error: 'Unauthorized' }, 401)
       );
 
+      await expect(apiClient.makeApiCall('/test-401')).rejects.toThrow(AuthenticationError);
+      
       try {
         await apiClient.makeApiCall('/test-401');
-        fail('Should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(AuthenticationError);
         expect((error as AuthenticationError).statusCode).toBe(401);
