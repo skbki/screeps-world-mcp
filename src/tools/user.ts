@@ -14,50 +14,36 @@ export class UserToolHandlers {
   constructor(private apiClient: ApiClient) {}
 
   async handleGetUserName(): Promise<ToolResult> {
-    try {
-      const endpoint = '/user/name';
-      const data = await this.apiClient.makeApiCall(endpoint);
+    const endpoint = '/user/name';
+    const data = await this.apiClient.makeApiCall(endpoint);
 
-      const additionalGuidance = [
-        'User name retrieved successfully',
-        'This is your authenticated username - no additional calls needed',
-        'Use this username for player identification and lookups',
-      ];
+    const additionalGuidance = [
+      'User name retrieved successfully',
+      'This is your authenticated username - no additional calls needed',
+      'Use this username for player identification and lookups',
+    ];
 
-      return this.apiClient.createEnhancedToolResult(data, endpoint, 'User Name', false, additionalGuidance);
-    } catch (error) {
-      return this.apiClient.createToolResult(
-        `Error getting user name: ${error instanceof Error ? error.message : String(error)}`,
-        true,
-      );
-    }
+    return this.apiClient.createEnhancedToolResult(data, endpoint, 'User Name', false, additionalGuidance);
   }
 
   async handleGetUserStats(params: IntervalOptions): Promise<ToolResult> {
-    try {
-      const endpoint = this.apiClient.buildEndpointWithQuery('/user/stats', params);
-      const data = await this.apiClient.makeApiCall(endpoint);
+    const endpoint = this.apiClient.buildEndpointWithQuery('/user/stats', params);
+    const data = await this.apiClient.makeApiCall(endpoint);
 
-      const additionalGuidance = [
-        `User statistics retrieved for ${params.interval || 'default'} interval`,
-        'Analyze performance trends and patterns from this data',
-        'Compare different time periods to identify improvements',
-        'Statistical data is complete - no additional stats calls needed',
-      ];
+    const additionalGuidance = [
+      `User statistics retrieved for ${params.interval || 'default'} interval`,
+      'Analyze performance trends and patterns from this data',
+      'Compare different time periods to identify improvements',
+      'Statistical data is complete - no additional stats calls needed',
+    ];
 
-      return this.apiClient.createEnhancedToolResult(
-        data,
-        endpoint,
-        `User Statistics${params.interval ? ` (${params.interval} interval)` : ''}`,
-        false,
-        additionalGuidance,
-      );
-    } catch (error) {
-      return this.apiClient.createToolResult(
-        `Error getting user stats: ${error instanceof Error ? error.message : String(error)}`,
-        true,
-      );
-    }
+    return this.apiClient.createEnhancedToolResult(
+      data,
+      endpoint,
+      `User Statistics${params.interval ? ` (${params.interval} interval)` : ''}`,
+      false,
+      additionalGuidance,
+    );
   }
 
   /**
@@ -82,179 +68,137 @@ export class UserToolHandlers {
   }
 
   async handleGetUserRooms(params: UserRoomsOptions): Promise<ToolResult> {
-    try {
-      let userId: string;
-      let displayName: string;
+    let userId: string;
+    let displayName: string;
 
-      // Check if identifier is a user ID (24 hex chars) or username
-      if (this.isUserId(params.identifier)) {
-        userId = params.identifier;
-        displayName = params.identifier;
-      } else {
-        // It's a username, resolve to user ID
-        userId = await this.resolveUserId(params.identifier);
-        displayName = `${params.identifier} (${userId})`;
-      }
-
-      const endpoint = this.apiClient.buildEndpointWithQuery('/user/rooms', { id: userId });
-      const data = await this.apiClient.makeApiCall(endpoint);
-
-      const additionalGuidance = [
-        `User rooms data retrieved for ${displayName}`,
-        'Review room ownership and control levels',
-        'Identify rooms that need attention or optimization',
-        'Room data is complete - analyze the provided information',
-      ];
-
-      return this.apiClient.createEnhancedToolResult(
-        data,
-        endpoint,
-        `User Rooms (${displayName})`,
-        false,
-        additionalGuidance,
-      );
-    } catch (error) {
-      return this.apiClient.createToolResult(
-        `Error getting user rooms: ${error instanceof Error ? error.message : String(error)}`,
-        true,
-      );
+    // Check if identifier is a user ID (24 hex chars) or username
+    if (this.isUserId(params.identifier)) {
+      userId = params.identifier;
+      displayName = params.identifier;
+    } else {
+      // It's a username, resolve to user ID
+      userId = await this.resolveUserId(params.identifier);
+      displayName = `${params.identifier} (${userId})`;
     }
+
+    const endpoint = this.apiClient.buildEndpointWithQuery('/user/rooms', { id: userId });
+    const data = await this.apiClient.makeApiCall(endpoint);
+
+    const additionalGuidance = [
+      `User rooms data retrieved for ${displayName}`,
+      'Review room ownership and control levels',
+      'Identify rooms that need attention or optimization',
+      'Room data is complete - analyze the provided information',
+    ];
+
+    return this.apiClient.createEnhancedToolResult(
+      data,
+      endpoint,
+      `User Rooms (${displayName})`,
+      false,
+      additionalGuidance,
+    );
   }
 
   async handleFindUser(params: UserFindOptions): Promise<ToolResult> {
-    try {
-      const endpoint = this.apiClient.buildEndpointWithQuery('/user/find', params);
-      const data = await this.apiClient.makeApiCall(endpoint);
+    const endpoint = this.apiClient.buildEndpointWithQuery('/user/find', params);
+    const data = await this.apiClient.makeApiCall(endpoint);
 
-      const additionalGuidance = [
-        `User lookup completed for ${params.username || params.id}`,
-        'Use this information for player analysis or communication',
-        'Player information is complete - no additional lookups needed',
-        'Check user stats or rooms for more detailed information if needed',
-      ];
+    const additionalGuidance = [
+      `User lookup completed for ${params.username || params.id}`,
+      'Use this information for player analysis or communication',
+      'Player information is complete - no additional lookups needed',
+      'Check user stats or rooms for more detailed information if needed',
+    ];
 
-      return this.apiClient.createEnhancedToolResult(
-        data,
-        endpoint,
-        `User Lookup: ${params.username || params.id}`,
-        false,
-        additionalGuidance,
-      );
-    } catch (error) {
-      return this.apiClient.createToolResult(
-        `Error finding user: ${error instanceof Error ? error.message : String(error)}`,
-        true,
-      );
-    }
+    return this.apiClient.createEnhancedToolResult(
+      data,
+      endpoint,
+      `User Lookup: ${params.username || params.id}`,
+      false,
+      additionalGuidance,
+    );
   }
 
   async handleGetUserOverview(params: UserOverviewOptions): Promise<ToolResult> {
-    try {
-      const endpoint = this.apiClient.buildEndpointWithQuery('/user/overview', params);
-      const data = await this.apiClient.makeApiCall(endpoint);
+    const endpoint = this.apiClient.buildEndpointWithQuery('/user/overview', params);
+    const data = await this.apiClient.makeApiCall(endpoint);
 
-      const additionalGuidance = [
-        `User overview retrieved for ${params.interval || 'default'} interval`,
-        `${params.statName ? `Focused on ${params.statName} statistics` : 'General overview provided'}`,
-        'Analyze trends and performance metrics from this data',
-        'Overview data is complete - use for strategic planning',
-      ];
+    const additionalGuidance = [
+      `User overview retrieved for ${params.interval || 'default'} interval`,
+      `${params.statName ? `Focused on ${params.statName} statistics` : 'General overview provided'}`,
+      'Analyze trends and performance metrics from this data',
+      'Overview data is complete - use for strategic planning',
+    ];
 
-      return this.apiClient.createEnhancedToolResult(
-        data,
-        endpoint,
-        `User Overview${params.interval ? ` (${params.interval})` : ''}${params.statName ? ` - ${params.statName}` : ''}`,
-        false,
-        additionalGuidance,
-      );
-    } catch (error) {
-      return this.apiClient.createToolResult(
-        `Error getting user overview: ${error instanceof Error ? error.message : String(error)}`,
-        true,
-      );
-    }
+    return this.apiClient.createEnhancedToolResult(
+      data,
+      endpoint,
+      `User Overview${params.interval ? ` (${params.interval})` : ''}${params.statName ? ` - ${params.statName}` : ''}`,
+      false,
+      additionalGuidance,
+    );
   }
 
   async handleExecuteConsoleCommand(params: { expression: string }): Promise<ToolResult> {
-    try {
-      const endpoint = '/user/console';
-      const data = await this.apiClient.makeApiCall(endpoint, {
-        method: 'POST',
-        body: JSON.stringify({ expression: params.expression }),
-      });
+    const endpoint = '/user/console';
+    const data = await this.apiClient.makeApiCall(endpoint, {
+      method: 'POST',
+      body: JSON.stringify({ expression: params.expression }),
+    });
 
-      const additionalGuidance = [
-        `Console command executed: ${params.expression}`,
-        'Review the command result for any errors or output',
-        'Use console commands for real-time game interaction',
-        'Command execution complete - check result for next steps',
-      ];
+    const additionalGuidance = [
+      `Console command executed: ${params.expression}`,
+      'Review the command result for any errors or output',
+      'Use console commands for real-time game interaction',
+      'Command execution complete - check result for next steps',
+    ];
 
-      return this.apiClient.createEnhancedToolResult(
-        data,
-        endpoint,
-        `Console Command: ${params.expression}`,
-        false,
-        additionalGuidance,
-      );
-    } catch (error) {
-      return this.apiClient.createToolResult(
-        `Error executing console command: ${error instanceof Error ? error.message : String(error)}`,
-        true,
-      );
-    }
+    return this.apiClient.createEnhancedToolResult(
+      data,
+      endpoint,
+      `Console Command: ${params.expression}`,
+      false,
+      additionalGuidance,
+    );
   }
 
   async handleGetUserMemory(params: UserMemoryOptions): Promise<ToolResult> {
-    try {
-      const endpoint = this.apiClient.buildEndpointWithQuery('/user/memory', params);
-      const data = await this.apiClient.makeApiCall(endpoint);
+    const endpoint = this.apiClient.buildEndpointWithQuery('/user/memory', params);
+    const data = await this.apiClient.makeApiCall(endpoint);
 
-      const additionalGuidance = [
-        `User memory retrieved${params.path ? ` for path: ${params.path}` : ''}`,
-        'Parse and analyze the memory data structure',
-        'Use memory data for game state understanding',
-        'Memory data is complete - no additional memory calls needed',
-      ];
+    const additionalGuidance = [
+      `User memory retrieved${params.path ? ` for path: ${params.path}` : ''}`,
+      'Parse and analyze the memory data structure',
+      'Use memory data for game state understanding',
+      'Memory data is complete - no additional memory calls needed',
+    ];
 
-      return this.apiClient.createEnhancedToolResult(
-        data,
-        endpoint,
-        `User Memory${params.path ? ` (${params.path})` : ''}`,
-        false,
-        additionalGuidance,
-      );
-    } catch (error) {
-      return this.apiClient.createToolResult(
-        `Error getting user memory: ${error instanceof Error ? error.message : String(error)}`,
-        true,
-      );
-    }
+    return this.apiClient.createEnhancedToolResult(
+      data,
+      endpoint,
+      `User Memory${params.path ? ` (${params.path})` : ''}`,
+      false,
+      additionalGuidance,
+    );
   }
 
   async handleAuthSignin(params: AuthSigninOptions): Promise<ToolResult> {
-    try {
-      const data = await this.apiClient.makeApiCall('/auth/signin', {
-        method: 'POST',
-        body: JSON.stringify({ email: params.email, password: params.password }),
-      });
+    const data = await this.apiClient.makeApiCall('/auth/signin', {
+      method: 'POST',
+      body: JSON.stringify({ email: params.email, password: params.password }),
+    });
 
-      if (data.token) {
-        // Update the config with the new token - we need access to the config manager for this
-        // This will be handled in the registry
-      }
-
-      return this.apiClient.createToolResult(
-        `Sign in successful!\nToken: ${
-          data.token ? '[REDACTED]' : 'Not provided'
-        }\nResponse: ${JSON.stringify({ ...data, token: data.token ? '[REDACTED]' : undefined }, null, 2)}`,
-      );
-    } catch (error) {
-      return this.apiClient.createToolResult(
-        `Sign in failed: ${error instanceof Error ? error.message : String(error)}`,
-        true,
-      );
+    if (data.token) {
+      // Update the config with the new token - we need access to the config manager for this
+      // This will be handled in the registry
     }
+
+    return this.apiClient.createToolResult(
+      `Sign in successful!\nToken: ${
+        data.token ? '[REDACTED]' : 'Not provided'
+      }\nResponse: ${JSON.stringify({ ...data, token: data.token ? '[REDACTED]' : undefined }, null, 2)}`,
+    );
   }
 
   // Zod schemas for validation

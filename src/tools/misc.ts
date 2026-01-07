@@ -6,29 +6,15 @@ export class MiscToolHandlers {
   constructor(private apiClient: ApiClient) {}
 
   async handleGetPvpInfo(params: PvpInfoOptions): Promise<ToolResult> {
-    try {
-      const endpoint = this.apiClient.buildEndpointWithQuery('/experimental/pvp', params);
-      const data = await this.apiClient.makeApiCall(endpoint);
+    const endpoint = this.apiClient.buildEndpointWithQuery('/experimental/pvp', params);
+    const data = await this.apiClient.makeApiCall(endpoint);
 
-      return this.apiClient.createToolResult(`PvP Information:\n${JSON.stringify(data, null, 2)}`);
-    } catch (error) {
-      return this.apiClient.createToolResult(
-        `Error getting PvP info: ${error instanceof Error ? error.message : String(error)}`,
-        true,
-      );
-    }
+    return this.apiClient.createToolResult(`PvP Information:\n${JSON.stringify(data, null, 2)}`);
   }
 
   async handleGetNukesInfo(): Promise<ToolResult> {
-    try {
-      const data = await this.apiClient.makeApiCall('/experimental/nukes');
-      return this.apiClient.createToolResult(`Active Nukes Information:\n${JSON.stringify(data, null, 2)}`);
-    } catch (error) {
-      return this.apiClient.createToolResult(
-        `Error getting nukes info: ${error instanceof Error ? error.message : String(error)}`,
-        true,
-      );
-    }
+    const data = await this.apiClient.makeApiCall('/experimental/nukes');
+    return this.apiClient.createToolResult(`Active Nukes Information:\n${JSON.stringify(data, null, 2)}`);
   }
 
   // Zod schemas for validation
