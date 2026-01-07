@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { ApiClient } from '../../src/utils/api.js';
 import { ConfigManager } from '../../src/config/index.js';
 import { mockScreepsApiResponse, mockConfig, clearAllMocks } from '../helpers/mocks.js';
+import { ScreepsApiError, RateLimitError, AuthenticationError } from '../../src/utils/errors.js';
 
 describe('API Client', () => {
   let apiClient: ApiClient;
@@ -36,15 +37,24 @@ describe('API Client', () => {
       );
     });
 
-    it('should throw error on HTTP error response', async () => {
+    it('should throw ScreepsApiError on HTTP error response', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
         await mockScreepsApiResponse({ error: 'Not found' }, 404)
       );
 
-      await expect(apiClient.makeApiCall('/test-404')).rejects.toThrow('HTTP 404');
+      await expect(apiClient.makeApiCall('/test-404')).rejects.toThrow(ScreepsApiError);
+      
+      try {
+        await apiClient.makeApiCall('/test-404');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ScreepsApiError);
+        expect((error as ScreepsApiError).message).toContain('HTTP 404');
+        expect((error as ScreepsApiError).statusCode).toBe(404);
+        expect((error as ScreepsApiError).code).toBe('HTTP_ERROR');
+      }
     });
 
-    it('should handle rate limit exceeded (429)', async () => {
+    it('should throw RateLimitError on 429 response', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
         await mockScreepsApiResponse({ error: 'Rate limit' }, 429, {
           remaining: 0,
@@ -53,8 +63,32 @@ describe('API Client', () => {
         })
       );
 
-      // With short retry delays (10ms, 20ms, 40ms), should complete quickly
-      await expect(apiClient.makeApiCall('/test-429')).rejects.toThrow(/Rate limit exceeded/);
+      await expect(apiClient.makeApiCall('/test-429')).rejects.toThrow(RateLimitError);
+      
+      try {
+        await apiClient.makeApiCall('/test-429');
+      } catch (error) {
+        expect(error).toBeInstanceOf(RateLimitError);
+        expect((error as RateLimitError).message).toContain('Rate limit exceeded');
+        expect((error as RateLimitError).statusCode).toBe(429);
+        expect((error as RateLimitError).code).toBe('RATE_LIMITED');
+      }
+    });
+
+    it('should throw AuthenticationError on 401 response', async () => {
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(
+        await mockScreepsApiResponse({ error: 'Unauthorized' }, 401)
+      );
+
+      await expect(apiClient.makeApiCall('/test-401')).rejects.toThrow(AuthenticationError);
+      
+      try {
+        await apiClient.makeApiCall('/test-401');
+      } catch (error) {
+        expect(error).toBeInstanceOf(AuthenticationError);
+        expect((error as AuthenticationError).statusCode).toBe(401);
+        expect((error as AuthenticationError).code).toBe('AUTH_FAILED');
+      }
     });
   });
 

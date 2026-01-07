@@ -36,15 +36,12 @@ describe('Market Tools', () => {
       expect(result.content[0].text).toContain('list');
     });
 
-    it('should handle errors', async () => {
+    it('should throw error on network failure', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
         new Error('Network error')
       );
 
-      const result = await marketHandlers.handleGetMarketOrdersIndex();
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Error');
+      await expect(marketHandlers.handleGetMarketOrdersIndex()).rejects.toThrow();
     });
   });
 

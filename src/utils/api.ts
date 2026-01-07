@@ -1,5 +1,6 @@
 import { ConfigManager } from '../config/index.js';
 import { ToolResult, ResourceContent } from '../types/index.js';
+import { ScreepsApiError, RateLimitError, AuthenticationError, handleApiError } from './errors.js';
 
 export interface ApiResponseMetadata {
   endpoint: string;
@@ -47,6 +48,7 @@ export class ApiClient {
   private async fetchWithRetry(url: string, options: RequestInit): Promise<Response> {
     const config = this.configManager.getRetryConfig();
     let lastError: Error | undefined;
+    let lastResponse: Response | undefined;
 
     for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
       try {
@@ -60,19 +62,23 @@ export class ApiClient {
           return response;
         }
 
-        // Response has retryable status code
+        // Response has retryable status code - save for later
+        lastResponse = response;
         lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
         
-        // If this is the last attempt, throw the error
+        // If this is the last attempt, return the response and let the caller handle the error
         if (attempt === config.maxRetries) {
           console.error(`✗ API call failed after ${config.maxRetries} retries: ${url} - ${lastError.message}`);
-          throw lastError;
+          return response;
         }
 
         // Log retry attempt
         console.log(`⟳ Retry attempt ${attempt + 1}/${config.maxRetries} for ${url} (status: ${response.status})`);
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
+        lastError = error instanceof Error ? error : new ScreepsApiError(
+          String(error),
+          'NETWORK_ERROR'
+        );
         
         // If this is the last attempt, throw the error
         if (attempt === config.maxRetries) {
@@ -95,7 +101,11 @@ export class ApiClient {
     }
 
     // This should never be reached, but TypeScript needs it
-    throw lastError || new Error('Unknown error during retry');
+    // Return last response if available, otherwise throw
+    if (lastResponse) {
+      return lastResponse;
+    }
+    throw lastError || new ScreepsApiError('Unknown error during retry', 'UNKNOWN_ERROR');
   }
 
   async makeApiCall(endpoint: string, options: RequestInit = {}): Promise<any> {
@@ -131,11 +141,20 @@ export class ApiClient {
       if (!response.ok) {
         if (response.status === 429) {
           const retryAfter = response.headers.get('Retry-After');
-          throw new Error(
-            `Rate limit exceeded. Retry after ${retryAfter || 'unknown'} seconds. Consider reducing API call frequency.`,
+          const retryAfterSeconds = retryAfter ? parseInt(retryAfter) : undefined;
+          throw new RateLimitError(
+            `Rate limit exceeded. ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Consider reducing API call frequency.'}`,
+            retryAfterSeconds
           );
         }
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (response.status === 401) {
+          throw new AuthenticationError('Authentication failed. Check your API token.');
+        }
+        throw new ScreepsApiError(
+          `HTTP ${response.status}: ${response.statusText}`,
+          'HTTP_ERROR',
+          response.status
+        );
       }
 
       const data = await response.json();
@@ -145,14 +164,13 @@ export class ApiClient {
 
       return data;
     } catch (error) {
-      // Check if this is a 429 rate limit error and provide a better error message
-      if (error instanceof Error && error.message.startsWith('HTTP 429:')) {
-        throw new Error(
-          `Rate limit exceeded. Retry after unknown seconds. Consider reducing API call frequency.`,
-        );
-      }
       console.error(`API call failed for ${endpoint}:`, error);
-      throw error;
+      // Re-throw already-typed errors directly
+      if (error instanceof ScreepsApiError) {
+        throw error;
+      }
+      // Only wrap unexpected errors
+      handleApiError(error);
     }
   }
 

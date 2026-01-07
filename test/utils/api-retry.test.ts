@@ -230,7 +230,7 @@ describe('API Client - Retry Logic', () => {
 
       fetchMock.mockResolvedValue(await mockScreepsApiResponse({ error: 'Unauthorized' }, 401));
 
-      await expect(apiClient.makeApiCall('/test-no-retry-401')).rejects.toThrow('HTTP 401');
+      await expect(apiClient.makeApiCall('/test-no-retry-401')).rejects.toThrow('Authentication failed');
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 

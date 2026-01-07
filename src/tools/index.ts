@@ -5,7 +5,8 @@ import { RoomToolHandlers } from './room.js';
 import { UserToolHandlers } from './user.js';
 import { MarketToolHandlers } from './market.js';
 import { MiscToolHandlers } from './misc.js';
-import { AuthSigninOptions } from '../types/index.js';
+import { AuthSigninOptions, ToolResult } from '../types/index.js';
+import { isScreepsApiError, isValidationError, isRateLimitError, isAuthenticationError } from '../utils/errors.js';
 
 export class ToolRegistry {
   private roomHandlers: RoomToolHandlers;
@@ -21,6 +22,59 @@ export class ToolRegistry {
     this.userHandlers = new UserToolHandlers(apiClient);
     this.marketHandlers = new MarketToolHandlers(apiClient);
     this.miscHandlers = new MiscToolHandlers(apiClient);
+  }
+
+  /**
+   * Error boundary wrapper for tool handlers.
+   * Catches errors thrown by handlers and converts them to ToolResult with isError=true.
+   * This provides a consistent error handling pattern across all tools.
+   */
+  private async handleToolError<T>(
+    handler: () => Promise<ToolResult>,
+  ): Promise<ToolResult> {
+    try {
+      return await handler();
+    } catch (error) {
+      // Create detailed error message based on error type
+      let errorMessage: string;
+      let errorDetails: string[] = [];
+
+      if (isRateLimitError(error)) {
+        errorMessage = `Rate Limit Error: ${error.message}`;
+        if (error.retryAfter) {
+          errorDetails.push(`Retry after: ${error.retryAfter} seconds`);
+        }
+        errorDetails.push(`Status code: ${error.statusCode}`);
+      } else if (isAuthenticationError(error)) {
+        errorMessage = `Authentication Error: ${error.message}`;
+        errorDetails.push(`Status code: ${error.statusCode}`);
+        errorDetails.push('Check your SCREEPS_TOKEN environment variable');
+      } else if (isValidationError(error)) {
+        errorMessage = `Validation Error: ${error.message}`;
+        errorDetails.push(`Field: ${error.field}`);
+        errorDetails.push(`Value: ${JSON.stringify(error.value)}`);
+      } else if (isScreepsApiError(error)) {
+        errorMessage = `API Error: ${error.message}`;
+        errorDetails.push(`Error code: ${error.code}`);
+        if (error.statusCode) {
+          errorDetails.push(`Status code: ${error.statusCode}`);
+        }
+        if (error.context) {
+          errorDetails.push(`Context: ${JSON.stringify(error.context)}`);
+        }
+      } else if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
+        errorDetails.push(`Type: ${error.name}`);
+      } else {
+        errorMessage = `Unknown error: ${String(error)}`;
+      }
+
+      const fullMessage = errorDetails.length > 0
+        ? `${errorMessage}\n\nDetails:\n${errorDetails.map(d => `- ${d}`).join('\n')}`
+        : errorMessage;
+
+      return this.apiClient.createToolResult(fullMessage, true);
+    }
   }
 
   private async convertResult(resultPromise: Promise<any>): Promise<any> {
@@ -43,7 +97,7 @@ export class ToolRegistry {
           'Get terrain information for a specific room. Call this tool ONCE per room - terrain data is static and complete in a single response.',
         inputSchema: roomSchemas.roomTerrain,
       },
-      (params) => this.roomHandlers.handleGetRoomTerrain(params),
+      (params) => this.handleToolError(() => this.roomHandlers.handleGetRoomTerrain(params)),
     );
 
     server.registerTool(
@@ -54,7 +108,7 @@ export class ToolRegistry {
           'Get objects and users in a specific room. Supports pagination (page/pageSize), filtering by object type, and grouping by type to manage large result sets. For large rooms, use pagination or filtering to reduce output size. Note: groupByType and pagination are mutually exclusive; if both are specified, grouping takes precedence.',
         inputSchema: roomSchemas.roomObjects,
       },
-      (params) => this.roomHandlers.handleGetRoomObjects(params),
+      (params) => this.handleToolError(() => this.roomHandlers.handleGetRoomObjects(params)),
     );
 
     server.registerTool(
@@ -65,7 +119,7 @@ export class ToolRegistry {
           'Get room overview and statistics. Call this tool ONCE per room/interval combination - provides complete statistical data in a single response.',
         inputSchema: roomSchemas.roomOverview,
       },
-      (params) => this.roomHandlers.handleGetRoomOverview(params),
+      (params) => this.handleToolError(() => this.roomHandlers.handleGetRoomOverview(params)),
     );
 
     server.registerTool(
@@ -76,7 +130,7 @@ export class ToolRegistry {
           'Get room status information. Call this tool ONCE per room - status data is complete and rarely changes.',
         inputSchema: roomSchemas.roomStatus,
       },
-      (params) => this.roomHandlers.handleGetRoomStatus(params),
+      (params) => this.handleToolError(() => this.roomHandlers.handleGetRoomStatus(params)),
     );
 
     server.registerTool(
@@ -86,7 +140,7 @@ export class ToolRegistry {
         description: 'Calculate distance between two rooms',
         inputSchema: roomSchemas.calculateDistance,
       },
-      (params) => this.roomHandlers.handleCalculateDistance(params),
+      (params) => this.handleToolError(() => this.roomHandlers.handleCalculateDistance(params)),
     );
 
     // User Tools
@@ -97,7 +151,7 @@ export class ToolRegistry {
         description: 'Get user name',
         inputSchema: userSchemas.getUserName,
       },
-      () => this.userHandlers.handleGetUserName() as any,
+      () => this.handleToolError(() => this.userHandlers.handleGetUserName()),
     );
 
     server.registerTool(
@@ -107,7 +161,7 @@ export class ToolRegistry {
         description: 'Get user statistics',
         inputSchema: userSchemas.getUserStats,
       },
-      (params) => this.userHandlers.handleGetUserStats(params),
+      (params) => this.handleToolError(() => this.userHandlers.handleGetUserStats(params)),
     );
 
     server.registerTool(
@@ -117,7 +171,7 @@ export class ToolRegistry {
         description: 'Get user rooms by user ID. Use find_user tool first to get the user ID from username.',
         inputSchema: userSchemas.getUserRooms,
       },
-      (params) => this.userHandlers.handleGetUserRooms(params),
+      (params) => this.handleToolError(() => this.userHandlers.handleGetUserRooms(params)),
     );
 
     server.registerTool(
@@ -127,7 +181,7 @@ export class ToolRegistry {
         description: 'Find user by ID or username',
         inputSchema: userSchemas.findUser,
       },
-      (params) => this.userHandlers.handleFindUser(params),
+      (params) => this.handleToolError(() => this.userHandlers.handleFindUser(params)),
     );
 
     server.registerTool(
@@ -137,7 +191,7 @@ export class ToolRegistry {
         description: 'Get user overview statistics',
         inputSchema: userSchemas.getUserOverview,
       },
-      (params) => this.userHandlers.handleGetUserOverview(params),
+      (params) => this.handleToolError(() => this.userHandlers.handleGetUserOverview(params)),
     );
 
     server.registerTool(
@@ -147,7 +201,7 @@ export class ToolRegistry {
         description: 'Execute console command in Screeps',
         inputSchema: userSchemas.executeConsoleCommand,
       },
-      (params) => this.userHandlers.handleExecuteConsoleCommand(params),
+      (params) => this.handleToolError(() => this.userHandlers.handleExecuteConsoleCommand(params)),
     );
 
     server.registerTool(
@@ -157,7 +211,7 @@ export class ToolRegistry {
         description: 'Get user memory data',
         inputSchema: userSchemas.getUserMemory,
       },
-      (params) => this.userHandlers.handleGetUserMemory(params),
+      (params) => this.handleToolError(() => this.userHandlers.handleGetUserMemory(params)),
     );
 
     server.registerTool(
@@ -168,24 +222,16 @@ export class ToolRegistry {
         inputSchema: userSchemas.authSignin,
       },
       async (params: AuthSigninOptions) => {
-        const result = await this.userHandlers.handleAuthSignin(params);
+        return this.handleToolError(async () => {
+          const { result, token } = await this.userHandlers.handleAuthSignin(params);
 
-        // Handle token update if signin was successful
-        try {
-          // We need to extract the token from the API response
-          const data = await this.apiClient.makeApiCall('/auth/signin', {
-            method: 'POST',
-            body: JSON.stringify({ email: params.email, password: params.password }),
-          });
-
-          if (data.token) {
-            this.configManager.setToken(data.token);
+          // Update token if signin was successful
+          if (token) {
+            this.configManager.setToken(token);
           }
-        } catch (error) {
-          // Token update failed, but the original result is still valid
-        }
 
-        return result;
+          return result;
+        });
       },
     );
 
@@ -197,7 +243,7 @@ export class ToolRegistry {
         description: 'Get market orders index',
         inputSchema: marketSchemas.getMarketOrdersIndex,
       },
-      () => this.marketHandlers.handleGetMarketOrdersIndex(),
+      () => this.handleToolError(() => this.marketHandlers.handleGetMarketOrdersIndex()),
     );
 
     server.registerTool(
@@ -207,7 +253,7 @@ export class ToolRegistry {
         description: "Get user's market orders",
         inputSchema: marketSchemas.getMyMarketOrders,
       },
-      () => this.marketHandlers.handleGetMyMarketOrders(),
+      () => this.handleToolError(() => this.marketHandlers.handleGetMyMarketOrders()),
     );
 
     server.registerTool(
@@ -217,7 +263,7 @@ export class ToolRegistry {
         description: 'Get market orders for a specific resource',
         inputSchema: marketSchemas.getMarketOrders,
       },
-      (params) => this.marketHandlers.handleGetMarketOrders(params),
+      (params) => this.handleToolError(() => this.marketHandlers.handleGetMarketOrders(params)),
     );
 
     server.registerTool(
@@ -227,7 +273,7 @@ export class ToolRegistry {
         description: 'Get user money transaction history',
         inputSchema: marketSchemas.getMoneyHistory,
       },
-      (params) => this.marketHandlers.handleGetMoneyHistory(params),
+      (params) => this.handleToolError(() => this.marketHandlers.handleGetMoneyHistory(params)),
     );
 
     server.registerTool(
@@ -237,7 +283,7 @@ export class ToolRegistry {
         description: 'Get map statistics for specified rooms',
         inputSchema: marketSchemas.getMapStats,
       },
-      (params) => this.marketHandlers.handleGetMapStats(params),
+      (params) => this.handleToolError(() => this.marketHandlers.handleGetMapStats(params)),
     );
 
     // Miscellaneous Tools
@@ -248,7 +294,7 @@ export class ToolRegistry {
         description: 'Get PvP information from experimental endpoint',
         inputSchema: miscSchemas.getPvpInfo,
       },
-      (params) => this.miscHandlers.handleGetPvpInfo(params),
+      (params) => this.handleToolError(() => this.miscHandlers.handleGetPvpInfo(params)),
     );
 
     server.registerTool(
@@ -258,7 +304,7 @@ export class ToolRegistry {
         description: 'Get active nukes information by shard',
         inputSchema: miscSchemas.getNukesInfo,
       },
-      () => this.miscHandlers.handleGetNukesInfo(),
+      () => this.handleToolError(() => this.miscHandlers.handleGetNukesInfo()),
     );
   }
 }

@@ -73,15 +73,12 @@ describe('Misc Tools', () => {
       );
     });
 
-    it('should handle errors', async () => {
+    it('should throw error on network failure', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
         new Error('Network error')
       );
 
-      const result = await miscHandlers.handleGetPvpInfo({});
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Error');
+      await expect(miscHandlers.handleGetPvpInfo({})).rejects.toThrow();
     });
   });
 
@@ -120,15 +117,12 @@ describe('Misc Tools', () => {
       expect(result.content[0].text).toContain('nukes');
     });
 
-    it('should handle errors', async () => {
+    it('should throw error on network failure', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
         new Error('Network error')
       );
 
-      const result = await miscHandlers.handleGetNukesInfo();
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Error');
+      await expect(miscHandlers.handleGetNukesInfo()).rejects.toThrow();
     });
   });
 

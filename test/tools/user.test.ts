@@ -33,15 +33,12 @@ describe('User Tools', () => {
       expect(result.content[0].text).toContain('test-user');
     });
 
-    it('should handle errors', async () => {
+    it('should throw error on network failure', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
         new Error('Network error')
       );
 
-      const result = await userHandlers.handleGetUserName();
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Error');
+      await expect(userHandlers.handleGetUserName()).rejects.toThrow();
     });
   });
 
@@ -64,15 +61,12 @@ describe('User Tools', () => {
       expect(result.content[0].text).toContain('stats');
     });
 
-    it('should handle errors', async () => {
+  it('should throw error on network failure', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
         new Error('Network error')
       );
 
-      const result = await userHandlers.handleGetUserStats({ interval: '8' });
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Error');
+      await expect(userHandlers.handleGetUserStats({ interval: '8' })).rejects.toThrow();
     });
   });
 
@@ -173,7 +167,7 @@ describe('User Tools', () => {
       );
     });
 
-    it('should return error when username is not found', async () => {
+    it('should throw error when username is not found', async () => {
       const mockUserData = {
         ok: 1,
         user: null,
@@ -183,21 +177,15 @@ describe('User Tools', () => {
         await mockScreepsApiResponse(mockUserData)
       );
 
-      const result = await userHandlers.handleGetUserRooms({ identifier: 'nonexistent-user' });
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("User 'nonexistent-user' not found");
+      await expect(userHandlers.handleGetUserRooms({ identifier: 'nonexistent-user' })).rejects.toThrow("User 'nonexistent-user' not found");
     });
 
-    it('should handle API errors', async () => {
+    it('should throw error on API errors', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
         new Error('Network error')
       );
 
-      const result = await userHandlers.handleGetUserRooms({ identifier: 'test-user' });
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Error');
+      await expect(userHandlers.handleGetUserRooms({ identifier: 'test-user' })).rejects.toThrow();
     });
   });
 
@@ -285,13 +273,14 @@ describe('User Tools', () => {
         await mockScreepsApiResponse(mockData)
       );
 
-      const result = await userHandlers.handleAuthSignin({
+      const { result, token } = await userHandlers.handleAuthSignin({
         email: 'test@example.com',
         password: 'password123',
       });
 
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain('token');
+      expect(token).toBe('new-token-123');
     });
   });
 
