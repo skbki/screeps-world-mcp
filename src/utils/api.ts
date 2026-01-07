@@ -48,6 +48,7 @@ export class ApiClient {
   private async fetchWithRetry(url: string, options: RequestInit): Promise<Response> {
     const config = this.configManager.getRetryConfig();
     let lastError: Error | undefined;
+    let lastResponse: Response | undefined;
 
     for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
       try {
@@ -61,17 +62,14 @@ export class ApiClient {
           return response;
         }
 
-        // Response has retryable status code
-        lastError = new ScreepsApiError(
-          `HTTP ${response.status}: ${response.statusText}`,
-          'HTTP_ERROR',
-          response.status
-        );
+        // Response has retryable status code - save for later
+        lastResponse = response;
+        lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
         
-        // If this is the last attempt, throw the error
+        // If this is the last attempt, return the response and let the caller handle the error
         if (attempt === config.maxRetries) {
           console.error(`✗ API call failed after ${config.maxRetries} retries: ${url} - ${lastError.message}`);
-          throw lastError;
+          return response;
         }
 
         // Log retry attempt
@@ -103,6 +101,10 @@ export class ApiClient {
     }
 
     // This should never be reached, but TypeScript needs it
+    // Return last response if available, otherwise throw
+    if (lastResponse) {
+      return lastResponse;
+    }
     throw lastError || new ScreepsApiError('Unknown error during retry', 'UNKNOWN_ERROR');
   }
 

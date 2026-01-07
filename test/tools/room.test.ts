@@ -63,15 +63,12 @@ describe('Room Tools', () => {
       );
     });
 
-    it('should handle errors gracefully', async () => {
+    it('should throw error on failure', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
         new Error('Network error')
       );
 
-      const result = await roomHandlers.handleGetRoomTerrain({ room: 'W7N3' });
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Error getting room terrain');
+      await expect(roomHandlers.handleGetRoomTerrain({ room: 'W7N3' })).rejects.toThrow();
     });
   });
 
@@ -89,15 +86,12 @@ describe('Room Tools', () => {
       expect(result.content[0].text).toContain('objects');
     });
 
-    it('should handle regular errors', async () => {
+    it('should throw error on network failure', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
         new Error('Network error')
       );
 
-      const result = await roomHandlers.handleGetRoomObjects({ room: 'W7N3' });
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Error getting room objects');
+      await expect(roomHandlers.handleGetRoomObjects({ room: 'W7N3' })).rejects.toThrow();
     });
 
     it('should filter objects by type', async () => {
@@ -488,14 +482,11 @@ describe('Room Tools', () => {
       expect(result.content[0].text).toContain('deltaY');
     });
 
-    it('should handle invalid room names', async () => {
-      const result = await roomHandlers.handleCalculateDistance({
+    it('should throw error for invalid room names', async () => {
+      await expect(roomHandlers.handleCalculateDistance({
         from: 'invalid',
         to: 'W7N3',
-      });
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Error calculating distance');
+      })).rejects.toThrow('Invalid room name');
     });
   });
 
