@@ -165,6 +165,11 @@ export class ApiClient {
       return data;
     } catch (error) {
       console.error(`API call failed for ${endpoint}:`, error);
+      // Re-throw already-typed errors directly
+      if (error instanceof ScreepsApiError) {
+        throw error;
+      }
+      // Only wrap unexpected errors
       handleApiError(error);
     }
   }

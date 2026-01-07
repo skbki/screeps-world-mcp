@@ -223,21 +223,11 @@ export class ToolRegistry {
       },
       async (params: AuthSigninOptions) => {
         return this.handleToolError(async () => {
-          const result = await this.userHandlers.handleAuthSignin(params);
+          const { result, token } = await this.userHandlers.handleAuthSignin(params);
 
-          // Handle token update if signin was successful
-          try {
-            // We need to extract the token from the API response
-            const data = await this.apiClient.makeApiCall('/auth/signin', {
-              method: 'POST',
-              body: JSON.stringify({ email: params.email, password: params.password }),
-            });
-
-            if (data.token) {
-              this.configManager.setToken(data.token);
-            }
-          } catch (error) {
-            // Token update failed, but the original result is still valid
+          // Update token if signin was successful
+          if (token) {
+            this.configManager.setToken(token);
           }
 
           return result;

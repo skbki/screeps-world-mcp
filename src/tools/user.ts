@@ -9,6 +9,7 @@ import {
   UserRoomsOptions,
   AuthSigninOptions,
 } from '../types/index.js';
+import { ValidationError } from '../utils/errors.js';
 
 export class UserToolHandlers {
   constructor(private apiClient: ApiClient) {}
@@ -61,7 +62,7 @@ export class UserToolHandlers {
     const data = await this.apiClient.makeApiCall(endpoint);
 
     if (!data.user || !data.user._id) {
-      throw new Error(`User '${username}' not found`);
+      throw new ValidationError(`User '${username}' not found`, 'username', username);
     }
 
     return data.user._id;
@@ -183,22 +184,20 @@ export class UserToolHandlers {
     );
   }
 
-  async handleAuthSignin(params: AuthSigninOptions): Promise<ToolResult> {
+  async handleAuthSignin(params: AuthSigninOptions): Promise<{ result: ToolResult; token?: string }> {
     const data = await this.apiClient.makeApiCall('/auth/signin', {
       method: 'POST',
       body: JSON.stringify({ email: params.email, password: params.password }),
     });
 
-    if (data.token) {
-      // Update the config with the new token - we need access to the config manager for this
-      // This will be handled in the registry
-    }
-
-    return this.apiClient.createToolResult(
+    const result = this.apiClient.createToolResult(
       `Sign in successful!\nToken: ${
         data.token ? '[REDACTED]' : 'Not provided'
       }\nResponse: ${JSON.stringify({ ...data, token: data.token ? '[REDACTED]' : undefined }, null, 2)}`,
     );
+
+    // Return both the result and token for the registry to handle
+    return { result, token: data.token };
   }
 
   // Zod schemas for validation

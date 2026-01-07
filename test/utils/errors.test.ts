@@ -143,6 +143,21 @@ describe('Error Classes', () => {
       expect(() => handleApiError(null)).toThrow(ScreepsApiError);
       expect(() => handleApiError(undefined)).toThrow(ScreepsApiError);
     });
+
+    it('should preserve ValidationError without wrapping', () => {
+      const originalError = new ValidationError('Invalid field', 'fieldName', 'value');
+
+      expect(() => handleApiError(originalError)).toThrow(ValidationError);
+      
+      try {
+        handleApiError(originalError);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ValidationError);
+        expect(error).not.toBeInstanceOf(ScreepsApiError);
+        expect((error as ValidationError).field).toBe('fieldName');
+        expect((error as ValidationError).value).toBe('value');
+      }
+    });
   });
 
   describe('Type Guards', () => {

@@ -273,13 +273,14 @@ describe('User Tools', () => {
         await mockScreepsApiResponse(mockData)
       );
 
-      const result = await userHandlers.handleAuthSignin({
+      const { result, token } = await userHandlers.handleAuthSignin({
         email: 'test@example.com',
         password: 'password123',
       });
 
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain('token');
+      expect(token).toBe('new-token-123');
     });
   });
 

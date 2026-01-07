@@ -18,8 +18,10 @@ export class ScreepsApiError extends Error {
   ) {
     super(message);
     this.name = 'ScreepsApiError';
-    // Maintains proper stack trace for where error was thrown
-    Error.captureStackTrace(this, this.constructor);
+    // Maintains proper stack trace for where error was thrown (V8-specific)
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    }
   }
 }
 
@@ -35,7 +37,9 @@ export class ValidationError extends Error {
   ) {
     super(message);
     this.name = 'ValidationError';
-    Error.captureStackTrace(this, this.constructor);
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    }
   }
 }
 
@@ -77,6 +81,12 @@ export class AuthenticationError extends ScreepsApiError {
 export function handleApiError(error: unknown): never {
   // If already a ScreepsApiError, re-throw as-is
   if (error instanceof ScreepsApiError) {
+    throw error;
+  }
+
+  // ValidationError should be preserved and not wrapped
+  // It's meant for application-level validation, not API errors
+  if (error instanceof ValidationError) {
     throw error;
   }
 

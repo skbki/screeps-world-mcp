@@ -9,6 +9,7 @@ import {
   DistanceCalculationOptions,
   RoomCoordinates,
 } from '../types/index.js';
+import { ValidationError } from '../utils/errors.js';
 
 export class RoomToolHandlers {
   constructor(private apiClient: ApiClient) {}
@@ -254,7 +255,9 @@ export class RoomToolHandlers {
   async handleCalculateDistance(params: DistanceCalculationOptions): Promise<ToolResult> {
     const parseRoom = (roomName: string): RoomCoordinates => {
       const match = roomName.match(/^([EW])(\d+)([NS])(\d+)$/);
-      if (!match) throw new Error(`Invalid room name: ${roomName}`);
+      if (!match) {
+        throw new ValidationError(`Invalid room name: ${roomName}`, 'roomName', roomName);
+      }
 
       const [, ew, x, ns, y] = match;
 
