@@ -89,18 +89,6 @@ describe('Room Tools', () => {
       expect(result.content[0].text).toContain('objects');
     });
 
-    it('should handle loop detection error', async () => {
-      (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
-        new Error('LOOP DETECTED: Repeated calls')
-      );
-
-      const result = await roomHandlers.handleGetRoomObjects({ room: 'W7N3' });
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('LOOP DETECTED');
-      expect(result.content[0].text).toContain('CRITICAL ERROR');
-    });
-
     it('should handle regular errors', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
         new Error('Network error')

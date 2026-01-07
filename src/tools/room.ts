@@ -63,21 +63,10 @@ export class RoomToolHandlers {
         additionalGuidance,
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-
-      // Check if this is a loop detection error and make it more prominent
-      if (errorMessage.includes('LOOP DETECTED')) {
-        return this.apiClient.createToolResult(
-          `🚨 CRITICAL ERROR - LOOP DETECTED 🚨\n\n` +
-            `${errorMessage}\n\n` +
-            `⚠️ SYSTEM MESSAGE: This tool has been called multiple times for the same room.\n` +
-            `📊 SOLUTION: Analyze the data from previous calls instead of making new ones.\n` +
-            `🛑 ACTION REQUIRED: Stop calling get_room_objects and use existing data.`,
-          true,
-        );
-      }
-
-      return this.apiClient.createToolResult(`Error getting room objects: ${errorMessage}`, true);
+      return this.apiClient.createToolResult(
+        `Error getting room objects: ${error instanceof Error ? error.message : String(error)}`,
+        true,
+      );
     }
   }
 

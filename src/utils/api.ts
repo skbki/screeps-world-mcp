@@ -17,8 +17,6 @@ export interface ApiResponseMetadata {
 export class ApiClient {
   private responseCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
   private lastRateLimitInfo: ApiResponseMetadata['rateLimitInfo'] | undefined;
-  private recentCalls: Array<{ endpoint: string; timestamp: number; cacheKey: string }> = [];
-  private maxRecentCalls = 20; // Track last 20 calls
 
   constructor(private configManager: ConfigManager) {}
 
@@ -105,19 +103,6 @@ export class ApiClient {
     const cacheKey = this.generateCacheKey(endpoint, options);
     const cachedResult = this.getCachedResult(cacheKey);
 
-    // Track this call for loop detection BEFORE checking cache
-    this.trackCall(endpoint, cacheKey);
-
-    // Detect loops early and block the call
-    const loopDetection = this.detectLoops();
-    if (loopDetection.isLoop) {
-      throw new Error(
-        `🚨 LOOP DETECTED: This identical API call has been made multiple times recently. ` +
-          `Please analyze the existing data instead of making repeated calls. ` +
-          `Endpoint: ${endpoint}`,
-      );
-    }
-
     if (cachedResult) {
       // Add cache hit indicator
       this.lastRateLimitInfo = undefined; // No rate limit info for cached results
@@ -169,62 +154,6 @@ export class ApiClient {
       console.error(`API call failed for ${endpoint}:`, error);
       throw error;
     }
-  }
-
-  private trackCall(endpoint: string, cacheKey: string): void {
-    this.recentCalls.push({
-      endpoint,
-      cacheKey,
-      timestamp: Date.now(),
-    });
-
-    // Keep only recent calls
-    if (this.recentCalls.length > this.maxRecentCalls) {
-      this.recentCalls.shift();
-    }
-  }
-
-  private detectLoops(): { isLoop: boolean; warnings: string[] } {
-    const warnings: string[] = [];
-    let isLoop = false;
-
-    // Check for identical calls within last 5 minutes
-    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-    const recentIdenticalCalls = new Map<string, number>();
-
-    this.recentCalls
-      .filter((call) => call.timestamp > fiveMinutesAgo)
-      .forEach((call) => {
-        const count = recentIdenticalCalls.get(call.cacheKey) || 0;
-        recentIdenticalCalls.set(call.cacheKey, count + 1);
-      });
-
-    // Check for repetitive patterns - be more aggressive
-    for (const [cacheKey, count] of recentIdenticalCalls.entries()) {
-      if (count >= 2) {
-        isLoop = true;
-        warnings.push(`🚨 CRITICAL LOOP DETECTED: Identical call made ${count} times in the last 5 minutes`);
-        warnings.push(`🛑 STOP IMMEDIATELY: You already have all the data from this endpoint`);
-        warnings.push(`💡 MANDATORY: Analyze the existing data - DO NOT make more calls`);
-        warnings.push(`⚠️ SYSTEM: Further identical calls will be blocked`);
-      }
-    }
-
-    // Check for endpoint overuse
-    const endpointCounts = new Map<string, number>();
-    this.recentCalls.forEach((call) => {
-      const count = endpointCounts.get(call.endpoint) || 0;
-      endpointCounts.set(call.endpoint, count + 1);
-    });
-
-    for (const [endpoint, count] of endpointCounts.entries()) {
-      if (count >= 5) {
-        warnings.push(`⚠️ OVERUSE WARNING: ${endpoint} called ${count} times recently`);
-        warnings.push(`🎯 SUGGESTION: Consider using different endpoints or analyzing existing data`);
-      }
-    }
-
-    return { isLoop, warnings };
   }
 
   private generateCacheKey(endpoint: string, options: RequestInit): string {
@@ -323,30 +252,17 @@ export class ApiClient {
     isError = false,
     additionalGuidance?: string[],
   ): ToolResult {
-    // Detect loops and add warnings
-    const loopDetection = this.detectLoops();
-
     const metadata: ApiResponseMetadata = {
       endpoint,
       timestamp: new Date().toISOString(),
       rateLimitInfo: this.lastRateLimitInfo,
       dataCompleteness: this.assessDataCompleteness(data),
       suggestedNextActions: this.generateSuggestedActions(data, endpoint),
-      warnings: [...this.generateWarnings(data, endpoint), ...loopDetection.warnings],
+      warnings: this.generateWarnings(data, endpoint),
     };
 
     if (additionalGuidance) {
       metadata.suggestedNextActions = [...(metadata.suggestedNextActions || []), ...additionalGuidance];
-    }
-
-    // Add loop-specific guidance
-    if (loopDetection.isLoop) {
-      metadata.suggestedNextActions = [
-        '🚨 CRITICAL: Loop detected - DO NOT make more API calls',
-        '📊 ANALYZE: Use the data you already have',
-        '🎯 FOCUS: Draw conclusions from existing information',
-        ...(metadata.suggestedNextActions || []),
-      ];
     }
 
     const formattedResponse = this.formatResponse(data, metadata, description);
@@ -358,7 +274,7 @@ export class ApiClient {
           text: formattedResponse,
         },
       ],
-      isError: isError || loopDetection.isLoop, // Mark as error if loop detected
+      isError,
     };
   }
 
@@ -650,30 +566,17 @@ export class ApiClient {
     description: string,
     additionalGuidance?: string[],
   ): ResourceContent {
-    // Detect loops and add warnings for resources too
-    const loopDetection = this.detectLoops();
-
     const metadata: ApiResponseMetadata = {
       endpoint,
       timestamp: new Date().toISOString(),
       rateLimitInfo: this.lastRateLimitInfo,
       dataCompleteness: this.assessDataCompleteness(data),
       suggestedNextActions: this.generateResourceGuidance(data, endpoint),
-      warnings: [...this.generateWarnings(data, endpoint), ...loopDetection.warnings],
+      warnings: this.generateWarnings(data, endpoint),
     };
 
     if (additionalGuidance) {
       metadata.suggestedNextActions = [...(metadata.suggestedNextActions || []), ...additionalGuidance];
-    }
-
-    // Add loop-specific guidance for resources
-    if (loopDetection.isLoop) {
-      metadata.suggestedNextActions = [
-        '🚨 CRITICAL: Loop detected - STOP accessing this resource repeatedly',
-        '📊 ANALYZE: Use the resource data you already have',
-        '🎯 FOCUS: This resource data is static/semi-static - no need to refetch',
-        ...(metadata.suggestedNextActions || []),
-      ];
     }
 
     const formattedResponse = this.formatResourceResponse(data, metadata, description, uri);
